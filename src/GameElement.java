@@ -1,12 +1,23 @@
-import java.awt.Point;
+import java.awt.*;
+import java.awt.image.BufferedImage;
 
 public abstract class GameElement {
 
-    private Point location;
+    private Point center;
+    private Map map;
+    private Color maskColor;
 
-    public GameElement(final Point loc){
-        location = loc;
+    public GameElement(Map m, final Point loc){
+        map = m;
+        center = loc;
+        maskColor = m.addGameElement(this);
     }
-    public Point location(){return location;}
+
+    public Point getCenter(){return center;}
+    public Map getMap(){return map;}
+
+    public abstract void drawElement();
+
+    public abstract void drawMask();
 
 }
