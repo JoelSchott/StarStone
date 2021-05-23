@@ -7,25 +7,26 @@ import java.util.HashMap;
 public class Map extends JPanel {
     public final static Color BACKGROUND_MASK = new Color(0);
     public final static Color BACKGROUND = new Color(200,200,200);
+    public final static int WIDTH = 680;
+    public final static int HEIGHT = 460;
 
     private HashMap<Color, GameElement> elements;
     private BufferedImage mapImage;
     private BufferedImage maskImage;
-    private int height;
-    private int width;
     private int numElements = 0;
 
-    public Map(final int h, final int w){
-        this.height = h;
-        this.width = w;
+    private ArrayList<Player> players;
+
+    public Map(){
         this.setBackground(BACKGROUND);
-        this.setPreferredSize(new Dimension(width, height));
+        this.setPreferredSize(new Dimension(WIDTH, HEIGHT));
         this.setVisible(true);
         elements = new HashMap<>();
-        mapImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        mapImage = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
         fillBuffImage(mapImage, BACKGROUND);
-        maskImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        maskImage = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
         fillBuffImage(maskImage, BACKGROUND_MASK);
+        this.players = new ArrayList<>();
     }
 
     private void fillBuffImage(BufferedImage bi, final Color c){
@@ -42,6 +43,10 @@ public class Map extends JPanel {
         return elementColor;
     }
 
+    public void addPlayer(Player p){
+        this.players.add(p);
+    }
+
     @Override
     public void paintComponent(Graphics g){
         super.paintComponent(g);
@@ -50,4 +55,5 @@ public class Map extends JPanel {
 
     public BufferedImage getMapImage(){return mapImage;}
     public BufferedImage getMaskImage(){return maskImage;}
+    public ArrayList<Player> getPlayers(){return players;}
 }

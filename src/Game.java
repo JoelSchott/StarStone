@@ -9,8 +9,8 @@ public class Game extends JFrame {
     private Player player;
 
     public Game(){
-        map = new Map(MAP_HEIGHT, MAP_WIDTH);
-        Player p = new Player(map, new Point(10,50), new Color(255,0,0));
+        map = new Map();
+        //Player p = new Player(map, new Point(10,50), new Color(255,0,0));
         this.add(map);
         this.pack();
         this.setResizable(false);
