@@ -8,11 +8,16 @@ class StarStoneServer implements Runnable{
      */
 
     public final static String CONNECT_SUCCESS = "INITIAL_CONNECTION";
+    public final static String ADD_PLAYER = "ADD_PLAYER";
+    public final static String REMOVE_PLAYER = "REMOVE_PLAYER";  // remove the client this is sent to
+    public final static String OTHER_PLAYER_LEFT = "OTHER_LEFT";
 
     // the streams of all of the clients
     private ArrayList<ClientHandler> clients;
     private int serverPort;
+    private ServerSocket serverSocket;
     private boolean setUp = false;  // when the server is ready to accept clients
+    private boolean running = true;  // becomes false when there are no more players
 
     private Map map;
 
@@ -52,6 +57,11 @@ class StarStoneServer implements Runnable{
             }
         }
 
+        public void writeMessage(final String msg){
+            writer.println(msg);
+            writer.flush();
+        }
+
         public void run(){
             /**
              * Keeps waiting until a message is sent and then acts on the message
@@ -70,13 +80,51 @@ class StarStoneServer implements Runnable{
                         Player p = new Player(parts[1]);  // name is the second element of the message
                         map.addPlayer(p);
                         // send back that connection was successful
-                        writer.println(CONNECT_SUCCESS);
-                        writer.flush();
+                        String players_string = CONNECT_SUCCESS;
+                        for (Player player : map.getPlayers()){
+                            players_string += StarStoneClient.DELIMITER + player.getName();
+                        }
+                        System.out.println("writing to a new player with index " + id + " : " + players_string);
+                        writeMessage(players_string);
+                        // send the add player message to all the other players
+                        String addPlayer = ADD_PLAYER + StarStoneClient.DELIMITER + parts[1];
+                        broadcast(addPlayer, id);
+                    }
+                    // if a client is leaving
+                    if (message.equals(StarStoneClient.PLAYER_EXIT)){
+                        System.out.println("removing from the map");
+                        map.removePlayer(id);
+                        String leaveMessage = OTHER_PLAYER_LEFT + StarStoneClient.DELIMITER + id;
+                        broadcast(leaveMessage, id);
+                        clients.remove(id);
+                        socket.close();
+                        if (clients.size() == 0){
+                            System.out.println("setting server running to false");
+                            running = false;
+                            serverSocket.close();
+                        }
                     }
                 }
             }
             catch (Exception e){
                 e.printStackTrace();
+            }
+        }
+    }
+
+    private void broadcast(final String msg, final int exclude_id){
+        /**
+         * Sends msg to all of the clients, except for the client at index exclude_id. If all clients should get the
+         * message, then exclude_id could be set to -1
+         */
+        int numClients = clients.size();
+        for (int i = 0; i < numClients; i++){
+            if (i != exclude_id){
+                System.out.println("Broadcasting to client at index " + i);
+                clients.get(i).writeMessage(msg);
+            }
+            else{
+                System.out.println("NOT Broadcasting to client at index " + i);
             }
         }
     }
@@ -88,19 +136,23 @@ class StarStoneServer implements Runnable{
         clients = new ArrayList<>();
         try{
             // begin to listen for connections at this port
-            ServerSocket serverSocket = new ServerSocket(serverPort);
+            serverSocket = new ServerSocket(serverPort);
             System.out.println("Starting the server listening...");
             setUp = true;
-            while (true){
-                // a new client
-                Socket clientSocket = serverSocket.accept();
-                ClientHandler client = new ClientHandler(clientSocket);
-                clients.add(client);
-                // add a new listener to handle this client
-                Thread t = new Thread(client);
-                t.start();
-                System.out.println("A new client connected");
+            while (running){
+                try {
+                    // a new client
+                    Socket clientSocket = serverSocket.accept();
+                    ClientHandler client = new ClientHandler(clientSocket);
+                    clients.add(client);
+                    // add a new listener to handle this client
+                    Thread t = new Thread(client);
+                    t.start();
+                    System.out.println("A new client connected");
+                } catch (Exception e){e.printStackTrace();}
             }
+            serverSocket.close();
+            System.out.println("Closed server socket");
         }
         catch(Exception e){
             e.printStackTrace();

@@ -3,10 +3,11 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.*;
-import java.net.DatagramSocket;
+import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.util.function.BooleanSupplier;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
 
 public class StarStoneClient {
     /**
@@ -17,10 +18,16 @@ public class StarStoneClient {
     private static final int TEXT_FIELD_HEIGHT = 20;
     public static final String DELIMITER = ":";  // the general delimiter for StarStone protocol
     public static final String CHECK_CONNECTION = "INIT_SERVER_CHECK";  // first message, followed by player info
+    public static final String PLAYER_EXIT = "PLAYER_EXIT";  // player exits the game
 
     private Socket serverSocket;
     private BufferedReader inputReader;
     private PrintWriter outputWriter;
+
+    private MenuPanel menu;
+
+    private boolean host = false;
+    private boolean connected = false;
 
     private static String ip2ascii(final String ipaddress){
         /**
@@ -69,16 +76,19 @@ public class StarStoneClient {
          * Then connects to the server, starts listening to server
          */
         JFrame frame = new JFrame("Star Stone");
-        frame.getContentPane().add(new MenuPanel());
+        menu = new MenuPanel();
+        frame.getContentPane().add(menu);
         frame.pack();
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setVisible(true);
         frame.setResizable(false);
     }
 
-    private void connectToServer(final String serverIP, final int serverPort){
+    private int connectToServer(final String serverIP, final int serverPort){
         /**
          * Connects the client to the server, setting up all of the i/o objects
+         * @return returns 0 if all is well, 1 if an error with an invalid address, 2 for an error with an address
+         *         that is seems to be a valid ip address but is not responding, -1 for generic error
          */
         try{
             System.out.println("Making a socket...");
@@ -90,10 +100,21 @@ public class StarStoneClient {
             // start listening to messages from the server
             Thread readerThread = new Thread(new ServerListener());
             readerThread.start();
+            connected = true;
+            return 0;
+        }
+        catch (UnknownHostException e){
+            System.out.println("Seems to be an invalid address");
+            return 1;
+        }
+        catch (ConnectException ce){
+            System.out.println("There was a connect exception");
+            return 2;
         }
         catch (Exception e){
             e.printStackTrace();
         }
+        return -1;
     }
 
     private void sendInitMessage(final Player p){
@@ -102,7 +123,11 @@ public class StarStoneClient {
          */
         // message is the initial connection check, a separating delimiter, and the player name
         String message = CHECK_CONNECTION + DELIMITER + p.getName();
-        outputWriter.println(message);  // write a message to the server to see if setup is correct
+        sendMessage(message);  // write a message to the server to see if setup is correct
+    }
+
+    private void sendMessage(final String msg){
+        outputWriter.println(msg);
         outputWriter.flush();
     }
 
@@ -130,11 +155,24 @@ public class StarStoneClient {
         public void run(){
             String message;
             try{
-                while((message = inputReader.readLine()) != null){
+                while(connected && (message = inputReader.readLine()) != null){
                     System.out.println("Read a message from the server: " + message);
+                    if (message.startsWith(StarStoneServer.CONNECT_SUCCESS)){
+                        menu.createLobbyMenu(message);
+                    }
+                    else if (message.startsWith(StarStoneServer.ADD_PLAYER)){
+                        menu.addPlayer(message);
+                    }
+                    else if (message.startsWith(StarStoneServer.REMOVE_PLAYER)){
+                        menu.leaveGame();
+                    }
+                    else if (message.startsWith(StarStoneServer.OTHER_PLAYER_LEFT)){
+                        menu.removePlayer(message);
+                    }
                 }
             }
             catch(Exception e){
+                System.out.println("Problem reading message, this is the host: " + host);
                 e.printStackTrace();
             }
         }
@@ -149,6 +187,12 @@ public class StarStoneClient {
 
         private JTextField nameField;
         private JTextField gameAddress;
+        private JLabel statusLabel;
+        private JButton startGameButton;
+        private JButton joinGameButton;
+        private String serverIP = "";
+
+        private ArrayList<String> players = new ArrayList<>();
 
         public MenuPanel(){
             this.setPreferredSize(new Dimension(WIDTH, HEIGHT));
@@ -169,7 +213,7 @@ public class StarStoneClient {
 
             JLabel nameLabel = new JLabel("What name would you like for this game?");
             nameLabel.setAlignmentX(JComponent.CENTER_ALIGNMENT);
-            nameField = new JTextField("Player 0");
+            nameField = new JTextField("Player0");
             nameField.setPreferredSize(new Dimension(WIDTH, TEXT_FIELD_HEIGHT));
             nameField.setMaximumSize(nameLabel.getPreferredSize());
             nameField.setHorizontalAlignment(JTextField.CENTER);
@@ -178,20 +222,23 @@ public class StarStoneClient {
             startGameLabel1.setAlignmentX(JComponent.CENTER_ALIGNMENT);
             JLabel startGameLabel2 = new JLabel("which you can share to other players so they can join your game.");
             startGameLabel2.setAlignmentX(JComponent.CENTER_ALIGNMENT);
-            JButton startGameButton = new JButton("Start a new game");
+            startGameButton = new JButton("Start a new game");
             startGameButton.setAlignmentX(JComponent.CENTER_ALIGNMENT);
             startGameButton.addActionListener(new StartGameListener());
 
             JLabel joinGameLabel = new JLabel("Enter a game address to join a game.");
             joinGameLabel.setAlignmentX(JComponent.CENTER_ALIGNMENT);
-            JButton joinGameButton = new JButton("Join a game");
+            joinGameButton = new JButton("Join a game");
             joinGameButton.setAlignmentX(JComponent.CENTER_ALIGNMENT);
             joinGameButton.addActionListener(new JoinGameListener());
-            gameAddress = new JTextField();
+            gameAddress = new JTextField(serverIP);
             gameAddress.setColumns(20);
             gameAddress.setPreferredSize(new Dimension(WIDTH, TEXT_FIELD_HEIGHT));
             gameAddress.setMaximumSize(gameAddress.getPreferredSize());
             gameAddress.setHorizontalAlignment(JTextField.CENTER);
+
+            statusLabel = new JLabel("             ", SwingConstants.CENTER);
+            statusLabel.setAlignmentX(JComponent.CENTER_ALIGNMENT);
 
             this.setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
             this.add(welcomeLabel);
@@ -208,6 +255,10 @@ public class StarStoneClient {
             this.add(gameAddress);
             this.add(joinGameButton);
             this.add(Box.createVerticalGlue());
+            this.add(statusLabel);
+
+            this.revalidate();
+            this.repaint();
         }
 
         public class StartGameListener implements ActionListener {
@@ -215,9 +266,14 @@ public class StarStoneClient {
              * Handles the actions to take when the user presses the start game button
              */
             public void actionPerformed(ActionEvent event){
+                System.out.println("start pressed");
+                statusLabel.setText("Creating a game...");
+                disableButtons();
                 createServer(true);
                 // connection to the server will use the local ip address
-                joinGame("127.0.0.1");
+                serverIP = "127.0.0.1";
+                new JoinGameWorker().execute();
+                host = true;
             }
         }
 
@@ -226,23 +282,133 @@ public class StarStoneClient {
              * Handles actions to join a game
              */
             public void actionPerformed(ActionEvent event){
-                String ipAddress = gameAddress.getText();
-                joinGame(ipAddress);
+                serverIP = gameAddress.getText();
+                new JoinGameWorker().execute();
             }
         }
 
-        private void joinGame(final String ip){
-            connectToServer(ip, SERVER_PORT);
-            Player p = new Player(nameField.getText());
-            sendInitMessage(p);
+        private void disableButtons(){
+            startGameButton.setEnabled(false);
+            joinGameButton.setEnabled(false);
         }
 
-        private void createLobbyMenu(){
+        private void enableButtons(){
+            startGameButton.setEnabled(true);
+            joinGameButton.setEnabled(true);
+        }
+
+        private class JoinGameWorker extends SwingWorker<Void, Void>{
+            /**
+             * Worker to join a server, used to activate / deactivate buttons while connecting
+             */
+            protected Void doInBackground(){
+                /**
+                 * Connects to server, displaying messages and handling errors
+                 */
+                disableButtons();
+                statusLabel.setText("Joining a game...");
+                statusLabel.paintImmediately(statusLabel.getVisibleRect());
+                startGameButton.paintImmediately(startGameButton.getVisibleRect());
+                joinGameButton.paintImmediately(joinGameButton.getVisibleRect());
+                int connection_result = connectToServer(serverIP, SERVER_PORT);
+                if(connection_result == 0){  // if connection is successful
+                    Player p = new Player(nameField.getText());
+                    sendInitMessage(p);
+                }
+                else if (connection_result == 1){  // bad address
+                    statusLabel.setText("The game address could not be connected to.");
+                    statusLabel.paintImmediately(statusLabel.getVisibleRect());
+                }
+                else if (connection_result == 2){  // server not set up
+                    statusLabel.setText("The game address did not accept the connection.");
+                }
+                return null;
+            }
+            protected void done(){
+                enableButtons();
+            }
+        }
+
+        private void createLobbyMenu(final String players_string){
             /**
              * Sets up the panel to show the current players
              */
+            String[] info = players_string.split(StarStoneClient.DELIMITER);
+            for (int i = 1; i < info.length; i++){
+                players.add(info[i]);
+            }
+            drawLobbyMenu();
+        }
+
+        private void drawLobbyMenu(){
+            /**
+             * Draws the menu showing the current players and options to leave the game
+             */
             this.removeAll();
 
+            // show how to get other players to join
+            if (host){
+                JLabel addressLabel = new JLabel("Tell everyone to join at this address: " + getLocalIP());
+                addressLabel.setAlignmentX(JComponent.CENTER_ALIGNMENT);
+                this.add(addressLabel);
+            }
+            JLabel nameHeader = new JLabel("Players:");
+            nameHeader.setAlignmentX(JComponent.CENTER_ALIGNMENT);
+
+            this.setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+            this.add(Box.createVerticalGlue());
+            this.add(nameHeader);
+
+            for (int i = 0; i < players.size(); i++){
+                JLabel playerLabel = new JLabel(players.get(i));
+                playerLabel.setAlignmentX(JComponent.CENTER_ALIGNMENT);
+                this.add(playerLabel);
+            }
+
+            this.add(Box.createVerticalGlue());
+            JButton leaveButton = new JButton("Leave");
+            leaveButton.setAlignmentX(JComponent.CENTER_ALIGNMENT);
+            leaveButton.addActionListener(new LeaveGame());
+            this.add(leaveButton);
+            this.add(Box.createVerticalGlue());
+            this.revalidate();
+            this.repaint();
+        }
+
+        public class LeaveGame implements ActionListener{
+            public void actionPerformed(ActionEvent e){
+                System.out.println("Leaving Game...");
+                sendMessage(PLAYER_EXIT);
+                leaveGame();
+            }
+        }
+
+        private void leaveGame(){
+            System.out.println("creating main menu");
+            createMainMenu();
+            connected = false;
+            players.clear();
+            try{
+                serverSocket.close();
+            } catch (Exception e){
+                e.printStackTrace();
+            }
+
+        }
+
+        public void addPlayer(final String msg){
+            System.out.println("Adding a player with msg: " + msg);
+            players.add(msg.split(DELIMITER)[1]);
+            drawLobbyMenu();
+        }
+
+        public void removePlayer(final String msg){
+            System.out.println("Removing a fellow player at index " + msg.split(DELIMITER)[1]);
+            System.out.println(players);
+            int index = Integer.valueOf(msg.split(DELIMITER)[1]);
+            players.remove(index);
+            System.out.println(players);
+            drawLobbyMenu();
         }
 
     }

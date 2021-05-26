@@ -46,6 +46,9 @@ public class Map extends JPanel {
     public void addPlayer(Player p){
         this.players.add(p);
     }
+    public void removePlayer(final int index){
+        System.out.println("in the map, removing the player");
+        this.players.remove(index);}
 
     @Override
     public void paintComponent(Graphics g){

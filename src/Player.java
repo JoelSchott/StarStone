@@ -1,23 +1,26 @@
 import java.awt.*;
-import java.awt.geom.Ellipse2D;
 
-public class Player{
+public class Player implements PlayerInterface{
 
-    private static int RADIUS = 25;
-    private Color color;
+    private boolean setUp = false;
     private String name;
+    private GameClient client;
 
+    // only here for deprecation reasons, will be removed if all goes well
     public Player(final String name) {
-        this.name = name;
+
+    }
+
+    public Player(){}
+
+    public void play(){
+        client = new GameClient(this);
     }
 
     public String getName(){return name;}
 
-    public void drawElement(){
-
-    }
-
-    public void drawMask(){
-
+    @Override
+    public void onServerMessage(String message) {
+        System.out.println("Read a message from the server");
     }
 }
