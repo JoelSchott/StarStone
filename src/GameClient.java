@@ -9,6 +9,8 @@ import java.net.UnknownHostException;
  */
 public class GameClient {
 
+    public static final String SERVER_ERROR = "SERVER_ERROR";
+
     private Socket socket;
     private BufferedReader serverReader;
     private PrintWriter serverWriter;
@@ -25,18 +27,21 @@ public class GameClient {
      * Starts a server on this machine at the given port
      * @param portNumber the port for the server to listen at
      * @param game the game to have the server make and run
+     * @return whether or not the server is now active, should be if all goes well
      */
-    public void startServer(final int portNumber, GameInterface game){
+    public boolean startServer(final int portNumber, GameInterface game){
         GameServer server = new GameServer(portNumber, game);
         server.start();
+        return server.isActive();
     }
 
     /**
      * Connects to a server
      * @param ipAddress the ip address of the server to join
      * @param portNumber the number of the port to join at
+     * @return whether or not the connection was successful
      */
-    public void joinServer(final String ipAddress, final int portNumber){
+    public boolean joinServer(final String ipAddress, final int portNumber){
         try{
             System.out.println("Making a socket...");
             socket = new Socket(ipAddress, portNumber);
@@ -47,11 +52,29 @@ public class GameClient {
             // start listening to messages from the server
             Thread readerThread = new Thread(new ServerListener());
             readerThread.start();
+            return true;
         }
-        catch (UnknownHostException e){
-            System.out.println("Seems to be an invalid address");
+        catch (Exception e){
+            e.printStackTrace();
+            return false;
         }
-        catch (Exception e){e.printStackTrace();}
+    }
+
+    /**
+     * Sends the given message to the server
+     * @param message The message to send to the server
+     * @return whether or not the message was sent correctly
+     */
+    public boolean sendToServer(final String message){
+        try{
+            serverWriter.println(message);
+            serverWriter.flush();
+            return true;
+        }
+        catch(Exception e){
+            e.printStackTrace();
+            return false;
+        }
     }
 
     /**
@@ -71,6 +94,10 @@ public class GameClient {
             } catch (Exception e) {
                 System.out.println("Problem reading message");
                 e.printStackTrace();
+                try {
+                    socket.close();
+                }catch(Exception ex){ex.printStackTrace();}
+                player.onServerMessage(SERVER_ERROR);
             }
         }
     }

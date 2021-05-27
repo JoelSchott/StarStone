@@ -30,36 +30,45 @@ public class GameServer{
      * Starts the server listening for connections by creating and starting a thread
      */
     public void start(){
+        try{
+            // begin to listen for connections at this port
+            serverSocket = new ServerSocket(portNumber);
+            System.out.println("Starting the server listening...");
+            active = true;
+        }
+        catch (Exception e){
+            e.printStackTrace();
+            active = false;
+        }
+
         (new Thread() {
             public void run(){
-                try{
-                    // begin to listen for connections at this port
-                    serverSocket = new ServerSocket(portNumber);
-                    System.out.println("Starting the server listening...");
-                    active = true;
-                    while (active){
-                        try {
-                            // a new client
-                            Socket clientSocket = serverSocket.accept();
-                            // if we want to add this player
-                            if (game.onPlayerConnected()){
-                                ClientHandler client = new ClientHandler(clientSocket);
-                                clients.add(client);
-                                // add a new listener to handle this client
-                                Thread t = new Thread(client);
-                                t.start();
-                                System.out.println("A new client connected");
-                            }
-                        } catch (Exception e){e.printStackTrace();}
+                while (active){
+                    try {
+                        // a new client
+                        Socket clientSocket = serverSocket.accept();
+                        // if we want to add this player
+                        if (game.onPlayerConnected()){
+                            ClientHandler client = new ClientHandler(clientSocket);
+                            clients.add(client);
+                            // add a new listener to handle this client
+                            Thread t = new Thread(client);
+                            t.start();
+                            System.out.println("A new client connected");
+                        }
+                        else{
+                            clientSocket.close();
+                        }
+                    } catch (Exception e){
+                        e.printStackTrace();
+                        active = false;
                     }
-                }
-                catch(Exception e){
-                    e.printStackTrace();
                 }
             }
         }).start();
     }
 
+    public boolean isActive(){return active;}
 
     public void stop(){}
 
@@ -82,10 +91,10 @@ public class GameServer{
 
     /**
      * Sends a message to all clients except for the client at index ignore_index
-     * @param ignoreIndex The index of the client to ignore, to send to all clients set this to -1
      * @param message The message to send to all clients
+     * @param ignoreIndex The index of the client to ignore, to send to all clients set this to -1
      */
-    public void broadcast(final int ignoreIndex, final String message){
+    public void broadcast(final String message, final int ignoreIndex){
         for (int i = 0; i < clients.size(); i++){
             if (i != ignoreIndex){
                 clients.get(i).writeMessage(message);
@@ -100,6 +109,7 @@ public class GameServer{
         private BufferedReader reader;
         private PrintWriter writer;
         private Socket socket;
+        private boolean shuttingDown = false;  // used to tell when to expect exceptions
 
         /**
          * @param clientSocket the socket to use when communicating to the client
@@ -139,7 +149,10 @@ public class GameServer{
             }
             catch (Exception e){
                 System.out.println("Caught an exception in the server listening to a client");
-                e.printStackTrace();
+                if (!shuttingDown){
+                    remove();
+                }
+                //e.printStackTrace();
             }
         }
 
@@ -147,6 +160,7 @@ public class GameServer{
          * Remove this client from the server
          */
         public void remove(){
+            shuttingDown = true;
             int index = clients.indexOf(this);
             game.onPlayerDisconnected(index);
             try {

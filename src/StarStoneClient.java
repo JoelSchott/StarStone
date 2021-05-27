@@ -122,8 +122,8 @@ public class StarStoneClient {
          * Sends a message to the server to confirm connection and give information about the player
          */
         // message is the initial connection check, a separating delimiter, and the player name
-        String message = CHECK_CONNECTION + DELIMITER + p.getName();
-        sendMessage(message);  // write a message to the server to see if setup is correct
+        //String message = CHECK_CONNECTION + DELIMITER + p.getName();
+        //sendMessage(message);  // write a message to the server to see if setup is correct
     }
 
     private void sendMessage(final String msg){

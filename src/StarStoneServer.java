@@ -82,7 +82,7 @@ class StarStoneServer implements Runnable{
                         // send back that connection was successful
                         String players_string = CONNECT_SUCCESS;
                         for (Player player : map.getPlayers()){
-                            players_string += StarStoneClient.DELIMITER + player.getName();
+                            //players_string += StarStoneClient.DELIMITER + player.getName();
                         }
                         System.out.println("writing to a new player with index " + id + " : " + players_string);
                         writeMessage(players_string);
