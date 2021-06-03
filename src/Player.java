@@ -2,7 +2,6 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 
@@ -20,16 +19,11 @@ public class Player implements PlayerInterface{
 
     private ArrayList<StarStonePlayer> players = new ArrayList<StarStonePlayer>();
     private StarStonePlayer thisPlayer = new StarStonePlayer();
-    private StarStoneMap map;
+    private Map map;
     private KeyInput keyInput = new KeyInput();
     private BufferedImage mapImage;
 
     private boolean gameInProgress = false;
-
-    // only here for deprecation reasons, will be removed if all goes well
-    public Player(final String name) {
-
-    }
 
     public Player(){}
 
@@ -272,7 +266,7 @@ public class Player implements PlayerInterface{
     private class MapPanel extends JPanel{
 
         public MapPanel(){
-            this.setPreferredSize(new Dimension(StarStoneMap.VIEW_WIDTH, StarStoneMap.VIEW_HEIGHT));
+            this.setPreferredSize(new Dimension(Map.VIEW_WIDTH, Map.VIEW_HEIGHT));
         }
 
         @Override
@@ -334,7 +328,7 @@ public class Player implements PlayerInterface{
             if (client.joinServer(address, port)) {
                 System.out.println("Joined game successfully");
                 thisPlayer.setName(menu.getName());
-                thisPlayer.setImageFilePath("src\\Images\\blueTank.png");
+                thisPlayer.setImageFilePath("src\\Images\\soldier.png");
                 client.sendToServer(StarStoneGame.ADD_PLAYER + StarStoneGame.DELIMITER + thisPlayer.encode());
             } else {
                 menu.setStatus("Could not join game. Try checking the address and firewall.");
@@ -364,11 +358,11 @@ public class Player implements PlayerInterface{
         @Override
         public void actionPerformed(ActionEvent e) {
             // make sure there the minimum number of players
-            if (players.size() >= StarStoneMap.MIN_NUM_PLAYERS){
+            if (players.size() >= Map.MIN_NUM_PLAYERS){
                 client.sendToServer(StarStoneGame.START_GAME);
             }
             else{
-                menu.setStatus("At least " + StarStoneMap.MIN_NUM_PLAYERS + " players are required");
+                menu.setStatus("At least " + Map.MIN_NUM_PLAYERS + " players are required");
             }
         }
     }
@@ -450,7 +444,7 @@ public class Player implements PlayerInterface{
         }
         // starting the game
         else if (message.startsWith(StarStoneGame.START_GAME)){
-            map = new StarStoneMap(players);
+            map = new Map(players);
             gameInProgress = true;
             updateMap();
             displayGame();

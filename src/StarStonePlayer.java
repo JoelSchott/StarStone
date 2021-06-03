@@ -1,9 +1,8 @@
-import com.sun.javafx.geom.Line2D;
-import com.sun.javafx.geom.Point2D;
-import com.sun.javafx.geom.Rectangle;
-
 import javax.imageio.ImageIO;
 import java.awt.*;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.Line2D;
+import java.awt.image.AffineTransformOp;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -19,8 +18,10 @@ public class StarStonePlayer implements MapElement{
     private String name;
     private String imageFilePath;
     private Bounds bounds;
+    private BufferedImage originalImage;
     private BufferedImage image;
     private Point location = new Point(0,0);  // top left
+    private float angle = 0;  // radians
     private float speed = 5;  // multiplier for amount of translation
 
     /**
@@ -69,11 +70,40 @@ public class StarStonePlayer implements MapElement{
      */
     private void loadImage(){
         try {
+            originalImage = ImageIO.read(new File(imageFilePath));
             image = ImageIO.read(new File(imageFilePath));
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
+
+    /**
+     * Rotates to the given angle, changing the image and the bounds as necessary
+     * @param angle the angle, in radians, to change to, between 0 and 2 pi
+     */
+    public void rotate(final float angle){
+        this.angle = angle;
+
+        double sin = Math.abs(Math.sin(angle)), cos = Math.abs(Math.cos(angle));
+        int w = originalImage.getWidth();
+        int h = originalImage.getHeight();
+        int newWidth = (int) Math.floor(w * cos + h * sin);
+        int newHeight = (int) Math.floor(h * cos + w * sin);
+
+        image = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2d = image.createGraphics();
+        AffineTransform at = new AffineTransform();
+        at.translate((newWidth - w) / 2, (newHeight - h) / 2);
+
+        int x = w / 2;
+        int y = h / 2;
+
+        at.rotate(angle, x, y);
+        g2d.setTransform(at);
+        g2d.drawImage(originalImage, 0, 0, null);
+        g2d.dispose();
+    }
+
 
     /**
      * Translates the location of the player and updates the bounds
@@ -88,14 +118,14 @@ public class StarStonePlayer implements MapElement{
 
         // adjust for going below the screen
         while(newX < 0){
-            newX += StarStoneMap.WIDTH;
+            newX += Map.WIDTH;
         }
         while(newY < 0){
-            newY += StarStoneMap.HEIGHT;
+            newY += Map.HEIGHT;
         }
         // adjust for going past the screen
-        newX %= StarStoneMap.WIDTH;
-        newY %= StarStoneMap.HEIGHT;
+        newX %= Map.WIDTH;
+        newY %= Map.HEIGHT;
         setTopLeft(new Point(newX, newY));
     }
 
@@ -103,18 +133,32 @@ public class StarStonePlayer implements MapElement{
      * Updates the bounds to match the current image
      */
     private void createBounds(){
+        // TODO handle rotation, perhaps with
+        // AffineTransform at =
+        //        AffineTransform.getRotateInstance(
+        //            Math.toRadians(angleInDegrees), line.getX1(), line.getY1());
+        //
+        //    // Draw the rotated line
+        //    g.draw(at.createTransformedShape(line));
         Rectangle rect = new Rectangle(location.x, location.y, image.getWidth(), image.getHeight());
-        Point2D topLeft = new Point2D(location.x, location.y);
-        Point2D topRight = new Point2D(topLeft.x + image.getWidth(), topLeft.y);
-        Point2D bottomLeft = new Point2D(topLeft.x, topLeft.y + image.getHeight());
-        Point2D bottomRight = new Point2D(topLeft.x + image.getWidth(), topLeft.y + image.getHeight());
-        ArrayList<Line2D> lines = new ArrayList<>();
-        lines.add(new Line2D(topLeft, topRight));
-        lines.add(new Line2D(topRight, bottomRight));
-        lines.add(new Line2D(bottomRight, bottomLeft));
-        lines.add(new Line2D(bottomLeft, topLeft));
-        boolean wrapsX = topRight.x >= StarStoneMap.WIDTH;
-        boolean wrapsY = bottomRight.y >= StarStoneMap.HEIGHT;
+        Point topLeft = new Point(location.x, location.y);
+        Point topRight = new Point(topLeft.x + image.getWidth(), topLeft.y);
+        Point bottomLeft = new Point(topLeft.x, topLeft.y + image.getHeight());
+        Point bottomRight = new Point(topLeft.x + image.getWidth(), topLeft.y + image.getHeight());
+        ArrayList<Line2D.Float> lines = new ArrayList<>();
+        //lines.add(new Line2D.Float(topLeft, topRight));
+        //lines.add(new Line2D.Float(topRight, bottomRight));
+        //lines.add(new Line2D.Float(bottomRight, bottomLeft));
+        float oneThirdX = (float)(location.x + (image.getWidth() / 3.0));
+        float threeFourthsY = (float)(location.y + (image.getHeight() * 3.0 / 4.0));
+        lines.add(new Line2D.Float(location.x, location.y, oneThirdX, location.y));
+        lines.add(new Line2D.Float(location.x, bottomLeft.y, oneThirdX, bottomLeft.y));
+        lines.add(new Line2D.Float(oneThirdX, location.y, topRight.x, threeFourthsY));
+        lines.add(new Line2D.Float(oneThirdX, bottomLeft.y, topRight.x, threeFourthsY));
+        lines.add(new Line2D.Float(bottomLeft, topLeft));
+
+        boolean wrapsX = topRight.x >= Map.WIDTH;
+        boolean wrapsY = bottomRight.y >= Map.HEIGHT;
         bounds = new Bounds(rect, lines, wrapsX, wrapsY);
     }
 }

@@ -1,4 +1,3 @@
-import javax.print.DocFlavor;
 import java.util.ArrayList;
 
 /**
@@ -17,7 +16,7 @@ public class StarStoneGame implements GameInterface{
     private GameServer server;
     private ArrayList<StarStonePlayer> players = new ArrayList<>();
     private boolean gameStarted = false;
-    private StarStoneMap map;
+    private Map map;
 
     @Override
     public void setServer(GameServer server) {
@@ -26,7 +25,7 @@ public class StarStoneGame implements GameInterface{
 
     @Override
     public boolean onPlayerConnected() {
-        if (players.size() < StarStoneMap.MAX_NUM_PLAYERS && !gameStarted){
+        if (players.size() < Map.MAX_NUM_PLAYERS && !gameStarted){
             players.add(new StarStonePlayer());
             return true;
         }
@@ -70,7 +69,7 @@ public class StarStoneGame implements GameInterface{
         }
         // if the game is started
         else if (message.startsWith(START_GAME)){
-            map = new StarStoneMap(players);
+            map = new Map(players);
             // tell all players to start the game
             server.broadcast(START_GAME, -1);
             // this will make sure players do not join partway through
