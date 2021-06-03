@@ -102,4 +102,16 @@ public class GameClient {
         }
     }
 
+    /**
+     * Closes the connection to the server
+     */
+    public void close(){
+        try{
+            socket.close();
+        }
+        catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+
 }

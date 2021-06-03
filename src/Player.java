@@ -2,6 +2,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyListener;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 
 /**
@@ -10,11 +12,19 @@ import java.util.ArrayList;
 public class Player implements PlayerInterface{
 
     private static final int PORT = 5000;
+    private static final int INPUT_SLEEP = 50;  // amount to sleep between checks for input
     private GameClient client;
+    private JFrame frame;
     private MenuPanel menu;
+    private MapPanel mapPanel;
 
     private ArrayList<StarStonePlayer> players = new ArrayList<StarStonePlayer>();
     private StarStonePlayer thisPlayer = new StarStonePlayer();
+    private StarStoneMap map;
+    private KeyInput keyInput = new KeyInput();
+    private BufferedImage mapImage;
+
+    private boolean gameInProgress = false;
 
     // only here for deprecation reasons, will be removed if all goes well
     public Player(final String name) {
@@ -23,18 +33,54 @@ public class Player implements PlayerInterface{
 
     public Player(){}
 
+    /**
+     * Method that will set everything up and start the game
+     */
     public void play(){
         client = new GameClient(this);
         setUpGUI();
+        while (true){
+            if (gameInProgress) {
+                handleGameInput();
+            }
+            try {
+                Thread.sleep(INPUT_SLEEP);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     /**
      * Sets up a frame with the main menu
      */
     private void setUpGUI(){
-        JFrame frame = new JFrame("Star Stone");
+        frame = new JFrame("Star Stone");
+        frame.addKeyListener(keyInput);
+        displayMenu();
+    }
+
+    /**
+     * Removes all elements from the frame and creates and starts the main menu
+     */
+    private void displayMenu(){
+        gameInProgress = false;
+        frame.getContentPane().removeAll();
         menu = new MenuPanel();
         frame.getContentPane().add(menu);
+        frame.pack();
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setVisible(true);
+        frame.setResizable(false);
+     }
+
+     /**
+      * Removes all elements from the frame and creates and starts a game menu
+      */
+    private void displayGame(){
+        frame.getContentPane().removeAll();
+        mapPanel = new MapPanel();
+        frame.getContentPane().add(mapPanel);
         frame.pack();
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setVisible(true);
@@ -129,12 +175,60 @@ public class Player implements PlayerInterface{
         }
 
         /**
+         * Creates the lobby after joining a game but before the game starts.
+         * Displays the other players and has options to leave the game
+         */
+        private void createLobbyMenu(){
+            this.removeAll();
+
+            // show how to get other players to join
+            JLabel addressLabel = new JLabel("Tell your friends to join at this address: " + serverIP);
+            addressLabel.setAlignmentX(JComponent.CENTER_ALIGNMENT);
+            this.add(addressLabel);
+
+            JLabel nameHeader = new JLabel("Players:");
+            nameHeader.setAlignmentX(JComponent.CENTER_ALIGNMENT);
+
+            this.setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+            this.add(Box.createVerticalGlue());
+            this.add(nameHeader);
+
+            for (int i = 0; i < players.size(); i++){
+                JLabel playerLabel = new JLabel(players.get(i).getName());
+                playerLabel.setAlignmentX(JComponent.CENTER_ALIGNMENT);
+                this.add(playerLabel);
+            }
+
+            this.add(Box.createVerticalGlue());
+            JButton leaveButton = new JButton("Leave");
+            leaveButton.setAlignmentX(JComponent.CENTER_ALIGNMENT);
+            leaveButton.addActionListener(new LeaveGameListener());
+            this.add(leaveButton);
+            JButton startButton = new JButton("Start");
+            startButton.setAlignmentX(JComponent.CENTER_ALIGNMENT);
+            startButton.addActionListener(new CreateGameListener());
+            this.add(startButton);
+            this.add(Box.createVerticalGlue());
+            this.revalidate();
+            this.repaint();
+        }
+
+        /**
          * Changes the status label to the new message
          * @param msg the message to change the status label to
          */
         public void setStatus(final String msg){
             status = msg;
             statusLabel.setText(status);
+        }
+
+        /**
+         * Changes the address to the given address
+         * @param address the address to change to
+         */
+        public void setServerIP(final String address){
+            serverIP = address;
+            gameAddress.setText(serverIP);
         }
 
         /**
@@ -170,6 +264,29 @@ public class Player implements PlayerInterface{
             playerName = nameField.getText();
             return playerName;
         }
+    }
+
+    /**
+     * Draws the main view of the map
+     */
+    private class MapPanel extends JPanel{
+
+        public MapPanel(){
+            this.setPreferredSize(new Dimension(StarStoneMap.VIEW_WIDTH, StarStoneMap.VIEW_HEIGHT));
+        }
+
+        @Override
+        public void paintComponent(Graphics g){
+            super.paintComponent(g);
+            g.drawImage(mapImage, 0, 0, this);
+        }
+    }
+
+    /**
+     * Sets the current image to be the most recent view from the map
+     */
+    private void updateMap(){
+        mapImage = map.getPlayerView(thisPlayer);
     }
 
     /**
@@ -217,6 +334,7 @@ public class Player implements PlayerInterface{
             if (client.joinServer(address, port)) {
                 System.out.println("Joined game successfully");
                 thisPlayer.setName(menu.getName());
+                thisPlayer.setImageFilePath("src\\Images\\blueTank.png");
                 client.sendToServer(StarStoneGame.ADD_PLAYER + StarStoneGame.DELIMITER + thisPlayer.encode());
             } else {
                 menu.setStatus("Could not join game. Try checking the address and firewall.");
@@ -227,8 +345,129 @@ public class Player implements PlayerInterface{
         }
     }
 
+    /**
+     * Actions to take when the client wants to leave the game
+     */
+    private class LeaveGameListener implements ActionListener{
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            System.out.println("Leave button pressed");
+            client.sendToServer(StarStoneGame.PLAYER_LEFT);
+            client.close();
+        }
+    }
+
+    /**
+     * Launch a game using the players in the lobby
+     */
+    private class CreateGameListener implements ActionListener{
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            // make sure there the minimum number of players
+            if (players.size() >= StarStoneMap.MIN_NUM_PLAYERS){
+                client.sendToServer(StarStoneGame.START_GAME);
+            }
+            else{
+                menu.setStatus("At least " + StarStoneMap.MIN_NUM_PLAYERS + " players are required");
+            }
+        }
+    }
+
+    /**
+     * Reacts to player input to the game by sending messages to the server
+     */
+    private void handleGameInput(){
+        // translation with the keys
+        float dx = 0;
+        float dy = 0;
+        if (keyInput.isPressed(KeyInput.D)){
+            dx += thisPlayer.getSpeed();
+        }
+        if (keyInput.isPressed(KeyInput.A)){
+            dx -= thisPlayer.getSpeed();
+        }
+        if (keyInput.isPressed(KeyInput.W)){
+            dy -= thisPlayer.getSpeed();
+        }
+        if (keyInput.isPressed(KeyInput.S)){
+            dy += thisPlayer.getSpeed();
+        }
+        // send a message if a key is pressed
+        if (dx != 0 || dy != 0) {
+            System.out.println("Sending a message to server to move dx: " + (int)dx + " dy: " + (int)dy);
+            System.out.println("Sending above message to server, location is " + thisPlayer.getBounds().getRect().x + " " + thisPlayer.getBounds().getRect().y);
+            System.out.println("Sending about two messages to server, top left is " + thisPlayer.getTopLeft().x + ", " + thisPlayer.getTopLeft().y);
+            client.sendToServer(StarStoneGame.PLAYER_TRANSLATE + StarStoneGame.DELIMITER + (int)dx + StarStoneGame.DELIMITER + (int)dy);
+        }
+    }
+
     @Override
     public void onServerMessage(String message) {
         System.out.println("The player reads this message from the server: " + message);
+        // if there was an error, reset everything
+        if (message.equals(GameClient.SERVER_ERROR)){
+            displayMenu();
+            menu.setStatus("Disconnected from server");
+            players.clear();
+        }
+        // if the connection is rejected because there are too many players
+        if (message.equals(GameServer.CONNECTION_REJECTED)){
+            menu.setStatus("Connection rejected, game is full or started");
+        }
+        // given when first joining a game, gives a list of players
+        else if (message.startsWith(StarStoneGame.All_PLAYERS)){
+            String[] playerInfo = message.split(StarStoneGame.DELIMITER);
+            // make a player and add it to players from the string info
+            for (int i = 1; i < playerInfo.length; i++){
+                StarStonePlayer p = new StarStonePlayer();
+                p.construct(playerInfo[i]);
+                players.add(p);
+            }
+            // this player is the most recent player, at the end of the list
+            thisPlayer = players.get(players.size() - 1);
+            menu.createLobbyMenu();
+        }
+        // when joining the game the server sends the ip address it wants to be known by
+        else if (message.startsWith(StarStoneGame.SET_SERVER_IP)){
+            menu.setServerIP(message.split(StarStoneGame.DELIMITER)[1]);
+            menu.createLobbyMenu();
+        }
+        // a new player has joined
+        else if (message.startsWith(StarStoneGame.ADD_PLAYER)){
+            String[] playerInfo = message.split(StarStoneGame.DELIMITER);
+            StarStonePlayer p = new StarStonePlayer();
+            p.construct(playerInfo[1]);
+            players.add(p);
+            // redraw the menu to include the new player
+            menu.createLobbyMenu();
+        }
+        // a player left
+        else if (message.startsWith(StarStoneGame.PLAYER_LEFT)){
+            int index = Integer.valueOf(message.split(StarStoneGame.DELIMITER)[1]);
+            players.remove(index);
+            // redraw the menu to remove the player
+            menu.createLobbyMenu();
+        }
+        // starting the game
+        else if (message.startsWith(StarStoneGame.START_GAME)){
+            map = new StarStoneMap(players);
+            gameInProgress = true;
+            updateMap();
+            displayGame();
+        }
+        // a player is translating
+        else if (message.startsWith(StarStoneGame.PLAYER_TRANSLATE)){
+            System.out.println("just heard from server to translate, location is " + thisPlayer.getBounds().getRect().x + " " + thisPlayer.getBounds().getRect().y);
+            System.out.println("Just heard to translate, the top left is " + thisPlayer.getTopLeft().x + ", " + thisPlayer.getTopLeft().y);
+            String[] info = message.split(StarStoneGame.DELIMITER);
+            int index = Integer.valueOf(info[1]);
+            int dx = Integer.valueOf(info[2]);
+            int dy = Integer.valueOf(info[3]);
+            // no need to check because the server has checked
+            map.translatePlayer(index, dx, dy, false);
+            System.out.println("just reacted to server translate, location is " + thisPlayer.getBounds().getRect().x + " " + thisPlayer.getBounds().getRect().y);
+            updateMap();
+            frame.repaint();
+        }
     }
 }

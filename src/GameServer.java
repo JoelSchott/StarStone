@@ -1,6 +1,7 @@
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -15,6 +16,8 @@ public class GameServer{
     private ArrayList<ClientHandler> clients = new ArrayList<>();
     private ServerSocket serverSocket;
     private boolean active = false;
+
+    public static final String CONNECTION_REJECTED = "REJECTED";
 
     /**
      * @param portNumber the port the server should listen on
@@ -57,7 +60,8 @@ public class GameServer{
                             System.out.println("A new client connected");
                         }
                         else{
-                            clientSocket.close();
+                            ClientHandler client = new ClientHandler(clientSocket);
+                            client.writeMessage(CONNECTION_REJECTED);
                         }
                     } catch (Exception e){
                         e.printStackTrace();
@@ -70,7 +74,19 @@ public class GameServer{
 
     public boolean isActive(){return active;}
 
-    public void stop(){}
+    /**
+     *  Closes the client socket and sets active to false
+     *  Should only be called when all clients have left
+     */
+    public void stop(){
+        active = false;
+        try {
+            serverSocket.close();
+        }
+        catch (Exception e){
+            e.printStackTrace();
+        }
+    }
 
     /**
      * Sends a message to a particular client
@@ -170,5 +186,19 @@ public class GameServer{
         }
     }
 
-
+    /**
+     * The IP address for this server
+     * @return the IP address this server is using, null if not found
+     */
+    public String getAddress(){
+        String hostIP = null;
+        try {
+            InetAddress address = InetAddress.getLocalHost();
+            hostIP = address.getHostAddress();
+        }
+        catch (Exception e){
+            e.printStackTrace();
+        }
+        return hostIP;
+    }
 }

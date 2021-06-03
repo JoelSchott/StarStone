@@ -10,10 +10,14 @@ public class StarStoneGame implements GameInterface{
     public static final String ADD_PLAYER = "NEW_PLAYER";
     public static final String All_PLAYERS = "ALL_PLAYERS";
     public static final String PLAYER_LEFT = "PLAYER_LEFT";
+    public static final String SET_SERVER_IP = "SERVER_IP";
+    public static final String START_GAME = "START_GAME";
+    public static final String PLAYER_TRANSLATE = "PLAYER_TRANSLATE";
 
-    private static final int MAX_NUM_PLAYERS = 10;
     private GameServer server;
     private ArrayList<StarStonePlayer> players = new ArrayList<>();
+    private boolean gameStarted = false;
+    private StarStoneMap map;
 
     @Override
     public void setServer(GameServer server) {
@@ -22,7 +26,7 @@ public class StarStoneGame implements GameInterface{
 
     @Override
     public boolean onPlayerConnected() {
-        if (players.size() < MAX_NUM_PLAYERS){
+        if (players.size() < StarStoneMap.MAX_NUM_PLAYERS && !gameStarted){
             players.add(new StarStonePlayer());
             return true;
         }
@@ -34,11 +38,16 @@ public class StarStoneGame implements GameInterface{
         System.out.println("Game recognizes that player at index " + index + " left");
         players.remove(index);
         server.broadcast(PLAYER_LEFT + DELIMITER + index, index);
+        // if all the players are gone, stop the server
+        if (players.size() == 0){
+            server.stop();
+        }
     }
 
     @Override
     public void onPlayerMessage(int index, String message) {
         System.out.println("Player at index " + index + " sent message " + message);
+        // a new player is joining
         if (message.startsWith(ADD_PLAYER)){
             // the player will be the second element of the message
             String playerInfo = message.split(DELIMITER)[1];
@@ -52,6 +61,32 @@ public class StarStoneGame implements GameInterface{
                 allPlayersInfo += DELIMITER + p.encode();
             }
             server.sendMessage(index, allPlayersInfo);
+            server.sendMessage(index, SET_SERVER_IP + DELIMITER + server.getAddress());
+        }
+        // a player is leaving
+        else if (message.startsWith(PLAYER_LEFT)){
+            System.out.println("Player at index " + index + " requested to leave");
+            server.removeClient(index);
+        }
+        // if the game is started
+        else if (message.startsWith(START_GAME)){
+            map = new StarStoneMap(players);
+            // tell all players to start the game
+            server.broadcast(START_GAME, -1);
+            // this will make sure players do not join partway through
+            gameStarted = true;
+        }
+        // player is attempting to translate
+        else if (message.startsWith(PLAYER_TRANSLATE)){
+            String[] info = message.split(DELIMITER);
+            int dx = Integer.valueOf(info[1]);
+            int dy = Integer.valueOf(info[2]);
+            System.out.println("Translating in server");
+            // if the translation was successful, broadcast this to the other players
+            if(map.translatePlayer(index, dx, dy, true)){
+                // broadcast to everyone
+                server.broadcast(PLAYER_TRANSLATE + DELIMITER + index + DELIMITER + dx + DELIMITER + dy, -1);
+            }
         }
     }
 }
