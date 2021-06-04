@@ -93,6 +93,13 @@ public class Bounds {
     public boolean doesWrapX(){return wrapsX;}
     public boolean doesWrapY(){return wrapsY;}
 
+    public void setRect(final Rectangle r){
+        boundRect.x = r.x;
+        boundRect.y = r.y;
+        boundRect.width = r.width;
+        boundRect.height = r.height;
+    }
+
     /**
      * Checks is the bounds are overlapping
      * @param other the other bounds to check for overlapping

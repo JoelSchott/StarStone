@@ -1,19 +1,24 @@
+import javax.imageio.ImageIO;
 import java.awt.*;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Line2D;
 import java.awt.image.BufferedImage;
 import java.awt.image.ImageObserver;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 
 /**
  * Class that manages all of the players and objects in the map
  */
 public class Map {
-    public static final int WIDTH = 900;
-    public static final int HEIGHT = 900;
+    public static final int WIDTH = 1000;
+    public static final int HEIGHT = 1000;
     public static final int VIEW_WIDTH = 600;
     public static final int VIEW_HEIGHT = 600;
     public static final int MAX_NUM_PLAYERS = 3;
     public static final int MIN_NUM_PLAYERS = 2;
+    private static final String BACKGROUND_IMAGE_PATH = "src/Images/background.png";
     private static final Color BACKGROUND = new Color(150,150,90);
     private static final Point[] PLAYER_SPAWNS = {new Point(20,20), new Point(20,320), new Point(320,20)};
 
@@ -36,10 +41,25 @@ public class Map {
                 this.players.add(players.get(i));
             }
         }
-        players.get(0).rotate((float)Math.PI / 4);
         Graphics g = backgroundMap.getGraphics();
-        g.setColor(BACKGROUND);
-        g.fillRect(0,0,WIDTH,HEIGHT);
+        BufferedImage backgroundImage = null;
+        try {
+            backgroundImage = ImageIO.read(new File(BACKGROUND_IMAGE_PATH));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        int x = 0;
+        int y = 0;
+        while (x < WIDTH){
+            while (y < WIDTH){
+                g.drawImage(backgroundImage, x, y, null);
+                y += backgroundImage.getHeight();
+            }
+            x += backgroundImage.getWidth();
+            y = 0;
+        }
+        //g.setColor(BACKGROUND);
+        //g.fillRect(0,0,WIDTH,HEIGHT);
         g.setColor(Color.RED);
         g.drawRect(0,0,WIDTH,HEIGHT);
 
@@ -79,7 +99,7 @@ public class Map {
             // get the background
             BufferedImage background = getWrappedImage(backgroundMap, playerBounds.getRect().x, playerBounds.getRect().y, playerBounds.getRect().width, playerBounds.getRect().height);
             // draw the background on where the player was
-            drawWrappedImage(fullMap, background, playerBounds.getRect().x, playerBounds.getRect().y);
+            drawWrappedImage(fullMap, background, playerBounds.getRect().x, playerBounds.getRect().y, 0, 0);
             // now draw the player on the full map once more
             drawPlayer(players.get(playerIndex));
             // also draw intersecting players to make sure players are not overdrawn with background
@@ -92,6 +112,30 @@ public class Map {
 
         }
         return true;
+    }
+
+    /**
+     * Rotates the given player to the given angle and draws the new player image
+     * @param playerIndex the index of the player to rotate
+     * @param angle the angle, in radians, to rotate the player to
+     */
+    public void rotatePlayer(final int playerIndex, final double angle){
+        // save the old bounds for drawing over
+        Bounds oldBounds = players.get(playerIndex).getBounds();
+        players.get(playerIndex).setAngle(angle);
+
+        // get the background
+        BufferedImage background = getWrappedImage(backgroundMap, oldBounds.getRect().x, oldBounds.getRect().y, oldBounds.getRect().width, oldBounds.getRect().height);
+        // draw the background on where the player was
+        drawWrappedImage(fullMap, background, oldBounds.getRect().x, oldBounds.getRect().y, 0, 0);
+        // now draw the player on the full map once more
+        drawPlayer(players.get(playerIndex));
+        // also draw intersecting players to make sure players are not overdrawn with background
+        for (int i = 0; i < players.size(); i++){
+            if (i != playerIndex && oldBounds.rectIntersect(players.get(playerIndex).getBounds())){
+                drawPlayer(players.get(i));
+            }
+        }
     }
 
     /**
@@ -129,11 +173,9 @@ public class Map {
      * @param p the player to draw
      */
     private void drawPlayer(final StarStonePlayer p){
-        System.out.println("Drawing a player at x: " + p.getBounds().getRect().x + " y: " + p.getBounds().getRect().y);
-        Rectangle r = p.getBounds().getRect();
-        drawWrappedImage(fullMap, p.getImage(), r.x, r.y);
+        Point location = p.getTopLeft();
+        drawWrappedImage(fullMap, p.getImage(), location.x, location.y, p.getAngle(), p.getAnchor());
         Graphics2D g = fullMap.createGraphics();
-        //g.drawImage(p.getImage(), r.x, r.y, null);
         g.setColor(Color.RED);
         Rectangle playerRect = p.getBounds().getRect();
         g.drawRect(playerRect.x, playerRect.y, playerRect.width, playerRect.height);
@@ -229,12 +271,15 @@ public class Map {
      * @param toDraw the image to draw on top of the other image
      * @param x the x coordinate of the image to draw
      * @param y the y coordinate of the image to draw
+     * @param angle the angle, in radians, at which to draw toDraw
+     * @param anchor the distance from x and y to rotate the image around
      */
-    private static void drawWrappedImage(final BufferedImage canvas, final BufferedImage toDraw, int x, int y){
+    private static void drawWrappedImage(final BufferedImage canvas, final BufferedImage toDraw, int x, int y, double angle, int anchor){
         int canvasWidth = canvas.getWidth();
         int canvasHeight = canvas.getHeight();
-        int imageWidth = toDraw.getWidth();
-        int imageHeight = toDraw.getHeight();
+        //int imageWidth = toDraw.getWidth();
+        //int imageHeight = toDraw.getHeight();
+        int maxDimension = Math.max(toDraw.getWidth(), toDraw.getHeight());
         // ensure x and y are in the correct range
         while (x < 0){
             x += canvasWidth;
@@ -245,39 +290,68 @@ public class Map {
         x %= canvasWidth;
         y %= canvasHeight;
 
-        // find amounts to wrap or not wrap
-        int nonWrapX = canvasWidth - x;
-        int nonWrapY = canvasHeight - y;
-        int wrapX = imageWidth - nonWrapX;
-        int wrapY = imageHeight - nonWrapY;
-        // check if the image can be drawn normally in a direction
-        if (wrapX <= 0){
-            wrapX = 0;
-            nonWrapX = imageWidth;
-        }
-        if (wrapY <= 0){
-            wrapY = 0;
-            nonWrapY = imageHeight;
-        }
-        System.out.println("nonWrapX is " + nonWrapX);
-        System.out.println("nonWrapY is " + nonWrapY);
-        System.out.println("wrap x is " + wrapX);
-        System.out.println("wrap y is " + wrapY);
+        // draw the image normally
+        Graphics2D g = (Graphics2D) canvas.getGraphics();
+        AffineTransform at = new AffineTransform();
+        at.rotate(angle, x + anchor, y + anchor);
+        g.setTransform(at);
+        g.drawImage(toDraw,x,y, null);
 
-        Graphics g = canvas.getGraphics();
-        // set the top left of the image
-        g.drawImage(toDraw.getSubimage(0,0,nonWrapX, nonWrapY),x,y, null);
-        // draw the left-right overlap of the image
-        if (wrapX > 0) {
-            g.drawImage(toDraw.getSubimage(nonWrapX, 0, wrapX, nonWrapY), 0, y, null);
+        // if need to draw the image again by shifting the image to the right
+        if (x - maxDimension < 0){
+            at = new AffineTransform();
+            at.rotate(angle, x + anchor + canvasWidth, y + anchor);
+            g.setTransform(at);
+            g.drawImage(toDraw, x + canvasWidth, y, null);
         }
-        // draw the top-bottom overlap of the image
-        if (wrapY > 0) {
-            g.drawImage(toDraw.getSubimage(0, nonWrapY, nonWrapX, wrapY), x, 0, null);
+        // if need to draw the image again by shifting the image to the left
+        if (x + maxDimension >= canvasWidth){
+            at = new AffineTransform();
+            at.rotate(angle, x + anchor - canvasWidth, y + anchor);
+            g.setTransform(at);
+            g.drawImage(toDraw, x - canvasWidth, y, null);
         }
-        // draw where both overlap
-        if (wrapX > 0 && wrapY > 0){
-            g.drawImage(toDraw.getSubimage(nonWrapX,nonWrapY,wrapX, wrapY), 0, 0, null);
+        // if need to draw the image again by shifting the image down
+        if (y - maxDimension < 0){
+            at = new AffineTransform();
+            at.rotate(angle, x + anchor, y + anchor + canvasHeight);
+            g.setTransform(at);
+            g.drawImage(toDraw, x, y + canvasHeight, null);
+        }
+        // if need to draw the image again by shifting the image up
+        if (y + maxDimension >= canvasHeight){
+            at = new AffineTransform();
+            at.rotate(angle, x + anchor, y + anchor - canvasHeight);
+            g.setTransform(at);
+            g.drawImage(toDraw, x, y - canvasHeight, null);
+        }
+        // if need to draw the image again by shifting the image down and right
+        if (y - maxDimension < 0 && x - maxDimension < 0){
+            at = new AffineTransform();
+            at.rotate(angle, x + anchor + canvasWidth, y + anchor + canvasHeight);
+            g.setTransform(at);
+            g.drawImage(toDraw, x + canvasWidth, y + canvasHeight, null);
+        }
+        // if need to draw the image again by shifting the image up and left
+        if (y + maxDimension >= canvasHeight && x + maxDimension >= canvasWidth){
+            at = new AffineTransform();
+            at.rotate(angle, x + anchor - canvasWidth, y + anchor - canvasHeight);
+            g.setTransform(at);
+            g.drawImage(toDraw, x - canvasWidth, y - canvasHeight, null);
+        }
+        // if need to draw the image again by shifting the image down and left
+        if (y - maxDimension < 0 && x + maxDimension >= canvasWidth){
+            at = new AffineTransform();
+            at.rotate(angle, x + anchor - canvasWidth, y + anchor + canvasHeight);
+            g.setTransform(at);
+            g.drawImage(toDraw, x - canvasWidth, y + canvasHeight, null);
+        }
+        // if need to draw the image again by shifting the image up and right
+        if (y + maxDimension >= canvasHeight && x - maxDimension < 0){
+            at = new AffineTransform();
+            at.rotate(angle, x + anchor + canvasWidth, y + anchor - canvasHeight);
+            g.setTransform(at);
+            g.drawImage(toDraw, x + canvasWidth, y - canvasHeight, null);
         }
 
     }

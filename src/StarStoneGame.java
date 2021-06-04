@@ -12,6 +12,7 @@ public class StarStoneGame implements GameInterface{
     public static final String SET_SERVER_IP = "SERVER_IP";
     public static final String START_GAME = "START_GAME";
     public static final String PLAYER_TRANSLATE = "PLAYER_TRANSLATE";
+    public static final String PLAYER_ROTATE = "PLAYER_ROTATE";
 
     private GameServer server;
     private ArrayList<StarStonePlayer> players = new ArrayList<>();
@@ -86,6 +87,13 @@ public class StarStoneGame implements GameInterface{
                 // broadcast to everyone
                 server.broadcast(PLAYER_TRANSLATE + DELIMITER + index + DELIMITER + dx + DELIMITER + dy, -1);
             }
+        }
+        // a player is rotating
+        else if (message.startsWith(PLAYER_ROTATE)){
+            String[] info = message.split(DELIMITER);
+            double angle = Double.valueOf(info[1]);
+            // no need to check because rotation will not cause conflicts
+            server.broadcast(PLAYER_ROTATE + DELIMITER + index + DELIMITER + angle, -1);
         }
     }
 }

@@ -12,6 +12,7 @@ public class Player implements PlayerInterface{
 
     private static final int PORT = 5000;
     private static final int INPUT_SLEEP = 50;  // amount to sleep between checks for input
+    private static final String SOLDIER_IMAGE_PATH = "src/Images/soldier.png";
     private GameClient client;
     private JFrame frame;
     private MenuPanel menu;
@@ -21,6 +22,7 @@ public class Player implements PlayerInterface{
     private StarStonePlayer thisPlayer = new StarStonePlayer();
     private Map map;
     private KeyInput keyInput = new KeyInput();
+    private MouseInput mouseInput = new MouseInput();
     private BufferedImage mapImage;
 
     private boolean gameInProgress = false;
@@ -51,6 +53,7 @@ public class Player implements PlayerInterface{
     private void setUpGUI(){
         frame = new JFrame("Star Stone");
         frame.addKeyListener(keyInput);
+        frame.addMouseListener(mouseInput);
         displayMenu();
     }
 
@@ -79,6 +82,16 @@ public class Player implements PlayerInterface{
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setVisible(true);
         frame.setResizable(false);
+    }
+
+    /**
+     * Gives the current location of the mouse relative to the map panel
+     * @return the coordinates of the mouse in the map panel
+     */
+    private Point getMouseLocation(){
+        Point mouseLoc = MouseInfo.getPointerInfo().getLocation();
+        Point panelLoc = mapPanel.getLocationOnScreen();
+        return new Point(mouseLoc.x - panelLoc.x, mouseLoc.y - panelLoc.y);
     }
 
     /**
@@ -328,7 +341,7 @@ public class Player implements PlayerInterface{
             if (client.joinServer(address, port)) {
                 System.out.println("Joined game successfully");
                 thisPlayer.setName(menu.getName());
-                thisPlayer.setImageFilePath("src\\Images\\soldier.png");
+                thisPlayer.setImageFilePath(SOLDIER_IMAGE_PATH);
                 client.sendToServer(StarStoneGame.ADD_PLAYER + StarStoneGame.DELIMITER + thisPlayer.encode());
             } else {
                 menu.setStatus("Could not join game. Try checking the address and firewall.");
@@ -393,6 +406,16 @@ public class Player implements PlayerInterface{
             System.out.println("Sending about two messages to server, top left is " + thisPlayer.getTopLeft().x + ", " + thisPlayer.getTopLeft().y);
             client.sendToServer(StarStoneGame.PLAYER_TRANSLATE + StarStoneGame.DELIMITER + (int)dx + StarStoneGame.DELIMITER + (int)dy);
         }
+        // find the current angle the player should face
+        Point mouseLocation = getMouseLocation();
+        // player will always be in the center
+        Point playerLocation = new Point(Map.VIEW_WIDTH / 2, Map.VIEW_HEIGHT / 2);
+        double angle = Math.atan2(mouseLocation.y - playerLocation.y, mouseLocation.x - playerLocation.x);
+        // if the angle has changed, send a message to the server
+        if (Math.abs(angle - thisPlayer.getAngle()) > 0.01){
+            client.sendToServer(StarStoneGame.PLAYER_ROTATE + StarStoneGame.DELIMITER + angle);
+        }
+        System.out.println("The angle is " + Math.toDegrees(angle));
     }
 
     @Override
@@ -460,6 +483,16 @@ public class Player implements PlayerInterface{
             // no need to check because the server has checked
             map.translatePlayer(index, dx, dy, false);
             System.out.println("just reacted to server translate, location is " + thisPlayer.getBounds().getRect().x + " " + thisPlayer.getBounds().getRect().y);
+            updateMap();
+            frame.repaint();
+        }
+        // a player is rotating
+        else if (message.startsWith(StarStoneGame.PLAYER_ROTATE)){
+            String[] info = message.split(StarStoneGame.DELIMITER);
+            int index = Integer.valueOf(info[1]);
+            double angle = Double.valueOf(info[2]);
+            // no need to check because the server has checked
+            map.rotatePlayer(index, angle);
             updateMap();
             frame.repaint();
         }
