@@ -38,8 +38,8 @@ public class Player implements PlayerInterface{
         setUpGUI();
 
         while (true){
-            if (gameInProgress && !updatingPlayers) {
-                handleGameInput();
+            if (gameInProgress) {
+                //handleGameInput();
             }
             try {
                 Thread.sleep(INPUT_SLEEP);
@@ -486,6 +486,7 @@ public class Player implements PlayerInterface{
             updateMap();
             displayGame();
             gameInProgress = true;
+            handleGameInput();
         }
         // a player is translating
         else if (message.startsWith(StarStoneGame.PLAYER_TRANSLATE)){
@@ -499,8 +500,8 @@ public class Player implements PlayerInterface{
             // no need to check because the server has checked
             map.translatePlayer(index, dx, dy, false);
             System.out.println("just reacted to server translate, location is " + thisPlayer.getBounds().getRect().x + " " + thisPlayer.getBounds().getRect().y);
-            updateMap();
-            frame.repaint();
+            //updateMap();
+            //frame.repaint();
         }
         // a player is rotating
         else if (message.startsWith(StarStoneGame.PLAYER_ROTATE)){
@@ -510,12 +511,15 @@ public class Player implements PlayerInterface{
             double angle = Double.valueOf(info[2]);
             // no need to check because the server has checked
             map.rotatePlayer(index, angle);
-            updateMap();
-            frame.repaint();
+            //updateMap();
+            //frame.repaint();
         }
         // finished updating all the players
         else if (message.startsWith(GameServer.END_PLAYER_UPDATE)){
             updatingPlayers = false;
+            updateMap();
+            frame.repaint();
+            handleGameInput();
         }
     }
 }

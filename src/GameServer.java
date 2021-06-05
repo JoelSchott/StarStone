@@ -84,9 +84,15 @@ public class GameServer{
         // thread to periodically get the updates of the players
         (new Thread() {
             public void run() {
+                // wait until there is at least one player before checking for updates
+                while (clients.size() == 0){
+                    try{Thread.sleep(3);}
+                    catch(Exception e){e.printStackTrace();}
+                }
                 while (active) {
                     // wait until all players have given input
                     long playerInputTime = waitForAllPlayerInput();
+                    System.out.println("Got all of the player input after " + playerInputTime + " milliseconds");
                     // see if extra waiting is needed to wait at least a certain time between inputs
                     long extraWait = PLAYER_INPUT_WAIT_TIME - playerInputTime;
                     if (extraWait > 0) {
@@ -230,14 +236,17 @@ public class GameServer{
             String message;
             try {
                 // do nothing until a message is received
-                while ((message = reader.readLine()) != null) {
+                while ((message = reader.readLine()) != null){
                     int index = clients.indexOf(this);
+                    System.out.println("Received message in the reader at index " + index + " :" + message);
                     // if it is a player update, do not send the message to the server immediately but rather store it
                     if (message.startsWith(PLAYER_UPDATE)){
+                        System.out.println("Received a player update at index " + index + " :" + message);
                         playerUpdate = message;
                     }
                     // a player update that nothing has changed about the player, so store this information
                     else if (message.startsWith(NO_UPDATE)){
+                        System.out.println("Received a no player update at index " + index + " :" + message);
                         playerUpdate = NO_UPDATE;
                     }
                     // otherwise, send the message immediately
