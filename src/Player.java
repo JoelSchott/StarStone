@@ -11,7 +11,7 @@ import java.util.ArrayList;
 public class Player implements PlayerInterface{
 
     public static final int PORT = 5000;
-    private static final int INPUT_SLEEP = 5;  // amount to sleep between updating player input to the server
+    private static final int INPUT_SLEEP = 25;  // amount to sleep between updating player input to the server
     private static final String SOLDIER_IMAGE_PATH = "src/Images/soldier.png";
     private GameClient client;
     private JFrame frame;
@@ -26,6 +26,7 @@ public class Player implements PlayerInterface{
     private BufferedImage mapImage;
 
     private boolean gameInProgress = false;
+    private boolean updatingPlayers = false;
 
     public Player(){}
 
@@ -37,7 +38,7 @@ public class Player implements PlayerInterface{
         setUpGUI();
 
         while (true){
-            if (gameInProgress) {
+            if (gameInProgress && !updatingPlayers) {
                 handleGameInput();
             }
             try {
@@ -425,6 +426,10 @@ public class Player implements PlayerInterface{
             playerUpdate = GameServer.PLAYER_UPDATE + playerUpdate;
             client.sendToServer(playerUpdate);
         }
+        // send that there is no update, this way the server will know that this client is ready
+        else{
+            client.sendToServer(GameServer.NO_UPDATE);
+        }
         System.out.println("The angle is " + Math.toDegrees(angle));
     }
 
@@ -484,6 +489,7 @@ public class Player implements PlayerInterface{
         }
         // a player is translating
         else if (message.startsWith(StarStoneGame.PLAYER_TRANSLATE)){
+            updatingPlayers = true;
             System.out.println("just heard from server to translate, location is " + thisPlayer.getBounds().getRect().x + " " + thisPlayer.getBounds().getRect().y);
             System.out.println("Just heard to translate, the top left is " + thisPlayer.getTopLeft().x + ", " + thisPlayer.getTopLeft().y);
             String[] info = message.split(StarStoneGame.DELIMITER);
@@ -498,6 +504,7 @@ public class Player implements PlayerInterface{
         }
         // a player is rotating
         else if (message.startsWith(StarStoneGame.PLAYER_ROTATE)){
+            updatingPlayers = true;
             String[] info = message.split(StarStoneGame.DELIMITER);
             int index = Integer.valueOf(info[1]);
             double angle = Double.valueOf(info[2]);
@@ -505,6 +512,10 @@ public class Player implements PlayerInterface{
             map.rotatePlayer(index, angle);
             updateMap();
             frame.repaint();
+        }
+        // finished updating all the players
+        else if (message.startsWith(GameServer.END_PLAYER_UPDATE)){
+            updatingPlayers = false;
         }
     }
 }

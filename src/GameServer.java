@@ -24,6 +24,9 @@ public class GameServer{
     // special message used during games, meaning do not send this message immediately but wait for server
     public static final String PLAYER_UPDATE = "PLAYER_UPDATE";
     public static final String NO_UPDATE = "NO_UPDATE";  // represents no change in the player
+    public static final String NOTHING_RECEIVED = "NOTHING_RECEIVED";  // represents no response from the player
+    // all of the updates have been received, so players can send their input again
+    public static final String END_PLAYER_UPDATE = "END_PLAYER_UPDATE";
 
     /**
      * @param portNumber the port the server should listen on
@@ -82,10 +85,16 @@ public class GameServer{
         (new Thread() {
             public void run() {
                 while (active) {
-                    try {
-                        Thread.sleep(PLAYER_INPUT_WAIT_TIME);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
+                    // wait until all players have given input
+                    long playerInputTime = waitForAllPlayerInput();
+                    // see if extra waiting is needed to wait at least a certain time between inputs
+                    long extraWait = PLAYER_INPUT_WAIT_TIME - playerInputTime;
+                    if (extraWait > 0) {
+                        try {
+                            Thread.sleep(extraWait);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
                     }
                     // gets the updates and send the updates to the server
                     for (int clientIndex = 0; clientIndex < clients.size(); clientIndex++){
@@ -93,11 +102,30 @@ public class GameServer{
                         if (playerUpdate != NO_UPDATE){
                             game.onPlayerMessage(clientIndex, playerUpdate);
                         }
+                        // set the update to be no input so the function will wait for input again
+                        clients.get(clientIndex).resetPlayerUpdate();
                     }
-
+                    // send a message that the updates have all been sent, so new inputs can be received
+                    broadcast(END_PLAYER_UPDATE, -1);
                 }
             }
         }).start();
+    }
+
+    /**
+     * Does nothing until each client has sent a player update input
+     * @return the time, in milliseconds, the function takes to wait
+     */
+    private long waitForAllPlayerInput(){
+        long startTime = System.currentTimeMillis();
+        for (int i = 0; i < clients.size(); i++){
+            while (clients.get(i).getPlayerUpdate() == NOTHING_RECEIVED){
+                // wait here
+                try{Thread.sleep(3);}
+                catch(Exception e){e.printStackTrace();}
+            }
+        }
+        return System.currentTimeMillis() - startTime;
     }
 
     public boolean isActive(){return active;}
@@ -154,7 +182,7 @@ public class GameServer{
         private PrintWriter writer;
         private Socket socket;
         private boolean shuttingDown = false;  // used to tell when to expect exceptions
-        private String playerUpdate = NO_UPDATE;  // used when message is not sent immediately
+        private String playerUpdate = NOTHING_RECEIVED;  // used when message is not sent immediately
 
         /**
          * @param clientSocket the socket to use when communicating to the client
@@ -181,13 +209,18 @@ public class GameServer{
         }
 
         /**
-         * Gives the current player update string and resets the update to be none
-         * @return the current player update, will be NO_UPDATE if nothing happens
+         * Gives the current player update string
+         * @return the current player update, will be NO_UPDATE if nothing has been sent to the server
          */
         public String getPlayerUpdate(){
-            String toReturn = playerUpdate;
-            playerUpdate = NO_UPDATE;
-            return toReturn;
+            return playerUpdate;
+        }
+
+        /**
+         * Sets the player update to be that nothing has been received, used after processing a message
+         */
+        public void resetPlayerUpdate(){
+            playerUpdate = NOTHING_RECEIVED;
         }
 
         /**
@@ -202,6 +235,10 @@ public class GameServer{
                     // if it is a player update, do not send the message to the server immediately but rather store it
                     if (message.startsWith(PLAYER_UPDATE)){
                         playerUpdate = message;
+                    }
+                    // a player update that nothing has changed about the player, so store this information
+                    else if (message.startsWith(NO_UPDATE)){
+                        playerUpdate = NO_UPDATE;
                     }
                     // otherwise, send the message immediately
                     else {
