@@ -11,7 +11,7 @@ import java.util.ArrayList;
 public class Player implements PlayerInterface{
 
     public static final int PORT = 5000;
-    private static final int INPUT_SLEEP = 200;//50;  // amount to sleep between checks for input
+    private static final int INPUT_SLEEP = 5;  // amount to sleep between updating player input to the server
     private static final String SOLDIER_IMAGE_PATH = "src/Images/soldier.png";
     private GameClient client;
     private JFrame frame;
@@ -35,7 +35,7 @@ public class Player implements PlayerInterface{
     public void play(){
         client = new GameClient(this);
         setUpGUI();
-        /*
+
         while (true){
             if (gameInProgress) {
                 handleGameInput();
@@ -46,7 +46,6 @@ public class Player implements PlayerInterface{
                 e.printStackTrace();
             }
         }
-         */
     }
 
     /**
@@ -384,9 +383,10 @@ public class Player implements PlayerInterface{
     }
 
     /**
-     * Reacts to player input to the game by sending messages to the server
+     * Reacts to player input to the game by sending a player update message to the server
      */
     private void handleGameInput(){
+        String playerUpdate = "";
         // translation with the keys
         float dx = 0;
         float dy = 0;
@@ -407,7 +407,8 @@ public class Player implements PlayerInterface{
             System.out.println("Sending a message to server to move dx: " + (int)dx + " dy: " + (int)dy);
             System.out.println("Sending above message to server, location is " + thisPlayer.getBounds().getRect().x + " " + thisPlayer.getBounds().getRect().y);
             System.out.println("Sending about two messages to server, top left is " + thisPlayer.getTopLeft().x + ", " + thisPlayer.getTopLeft().y);
-            client.sendToServer(StarStoneGame.PLAYER_TRANSLATE + StarStoneGame.DELIMITER + (int)dx + StarStoneGame.DELIMITER + (int)dy);
+            playerUpdate += StarStoneGame.UPDATE_DELIMITER + StarStoneGame.PLAYER_TRANSLATE + StarStoneGame.DELIMITER + (int)dx + StarStoneGame.DELIMITER + (int)dy;
+            //client.sendToServer(StarStoneGame.PLAYER_TRANSLATE + StarStoneGame.DELIMITER + (int)dx + StarStoneGame.DELIMITER + (int)dy);
         }
         // find the current angle the player should face
         Point mouseLocation = getMouseLocation();
@@ -416,7 +417,13 @@ public class Player implements PlayerInterface{
         double angle = Math.atan2(mouseLocation.y - playerLocation.y, mouseLocation.x - playerLocation.x);
         // if the angle has changed, send a message to the server
         if (Math.abs(angle - thisPlayer.getAngle()) > 0.01){
-            client.sendToServer(StarStoneGame.PLAYER_ROTATE + StarStoneGame.DELIMITER + angle);
+            playerUpdate += StarStoneGame.UPDATE_DELIMITER + StarStoneGame.PLAYER_ROTATE + StarStoneGame.DELIMITER + angle;
+            //client.sendToServer(StarStoneGame.PLAYER_ROTATE + StarStoneGame.DELIMITER + angle);
+        }
+        // send the message if there is information to send
+        if (!playerUpdate.equals("")){
+            playerUpdate = GameServer.PLAYER_UPDATE + playerUpdate;
+            client.sendToServer(playerUpdate);
         }
         System.out.println("The angle is " + Math.toDegrees(angle));
     }
@@ -498,12 +505,6 @@ public class Player implements PlayerInterface{
             map.rotatePlayer(index, angle);
             updateMap();
             frame.repaint();
-        }
-        // time to send player input to the server
-        else if (message.startsWith(GameServer.REQUEST_INPUT)){
-            if (gameInProgress) {
-                handleGameInput();
-            }
         }
     }
 }

@@ -11,8 +11,6 @@ import java.util.ArrayList;
  */
 public class GameServer{
 
-    // milliseconds to wait after the server has finished the action from a client, gives time for other clients to run
-    private static final int RECEIVED_MESSAGE_WAIT_TIME = 8;
     // milliseconds to wait between requesting that players send input
     private static final int PLAYER_INPUT_WAIT_TIME = 50;
 
@@ -23,7 +21,9 @@ public class GameServer{
     private boolean active = false;
 
     public static final String CONNECTION_REJECTED = "REJECTED";
-    public static final String REQUEST_INPUT = "REQUEST_INPUT";
+    // special message used during games, meaning do not send this message immediately but wait for server
+    public static final String PLAYER_UPDATE = "PLAYER_UPDATE";
+    public static final String NO_UPDATE = "NO_UPDATE";  // represents no change in the player
 
     /**
      * @param portNumber the port the server should listen on
@@ -78,7 +78,7 @@ public class GameServer{
             }
         }).start();
 
-        // thread to periodically request inputs from players, this should reduce speed differences between players
+        // thread to periodically get the updates of the players
         (new Thread() {
             public void run() {
                 while (active) {
@@ -87,8 +87,14 @@ public class GameServer{
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
-                    System.out.println("Requesting Input");
-                    broadcast(REQUEST_INPUT, -1);
+                    // gets the updates and send the updates to the server
+                    for (int clientIndex = 0; clientIndex < clients.size(); clientIndex++){
+                        String playerUpdate = clients.get(clientIndex).getPlayerUpdate();
+                        if (playerUpdate != NO_UPDATE){
+                            game.onPlayerMessage(clientIndex, playerUpdate);
+                        }
+                    }
+
                 }
             }
         }).start();
@@ -132,7 +138,7 @@ public class GameServer{
      * @param message The message to send to all clients
      * @param ignoreIndex The index of the client to ignore, to send to all clients set this to -1
      */
-    public void broadcast(final String message, final int ignoreIndex){
+    public synchronized void broadcast(final String message, final int ignoreIndex){
         for (int i = 0; i < clients.size(); i++){
             if (i != ignoreIndex){
                 clients.get(i).writeMessage(message);
@@ -148,6 +154,7 @@ public class GameServer{
         private PrintWriter writer;
         private Socket socket;
         private boolean shuttingDown = false;  // used to tell when to expect exceptions
+        private String playerUpdate = NO_UPDATE;  // used when message is not sent immediately
 
         /**
          * @param clientSocket the socket to use when communicating to the client
@@ -174,6 +181,16 @@ public class GameServer{
         }
 
         /**
+         * Gives the current player update string and resets the update to be none
+         * @return the current player update, will be NO_UPDATE if nothing happens
+         */
+        public String getPlayerUpdate(){
+            String toReturn = playerUpdate;
+            playerUpdate = NO_UPDATE;
+            return toReturn;
+        }
+
+        /**
          * Listens for messages from the client and sends it to the game
          */
         public void run(){
@@ -182,10 +199,14 @@ public class GameServer{
                 // do nothing until a message is received
                 while ((message = reader.readLine()) != null) {
                     int index = clients.indexOf(this);
-                    game.onPlayerMessage(index, message);
-                    // now wait so other clients can have their messages read before another message is read from this client
-                    try{Thread.sleep(RECEIVED_MESSAGE_WAIT_TIME);}
-                    catch(Exception e){e.printStackTrace();}
+                    // if it is a player update, do not send the message to the server immediately but rather store it
+                    if (message.startsWith(PLAYER_UPDATE)){
+                        playerUpdate = message;
+                    }
+                    // otherwise, send the message immediately
+                    else {
+                        game.onPlayerMessage(index, message);
+                    }
                 }
             }
             catch (Exception e){

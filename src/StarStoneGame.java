@@ -5,7 +5,8 @@ import java.util.ArrayList;
  */
 public class StarStoneGame implements GameInterface{
 
-    public static final String DELIMITER = ":";
+    public static final String DELIMITER = ":";  // delimiter used for messages not related to a player update
+    public static final String UPDATE_DELIMITER = "!";  // delimiter to separate actions in a player update
     public static final String ADD_PLAYER = "NEW_PLAYER";
     public static final String All_PLAYERS = "ALL_PLAYERS";
     public static final String PLAYER_LEFT = "PLAYER_LEFT";
@@ -76,24 +77,32 @@ public class StarStoneGame implements GameInterface{
             // this will make sure players do not join partway through
             gameStarted = true;
         }
-        // player is attempting to translate
-        else if (message.startsWith(PLAYER_TRANSLATE)){
-            String[] info = message.split(DELIMITER);
-            int dx = Integer.valueOf(info[1]);
-            int dy = Integer.valueOf(info[2]);
-            System.out.println("Translating in server");
-            // if the translation was successful, broadcast this to the other players
-            if(map.translatePlayer(index, dx, dy, true)){
-                // broadcast to everyone
-                server.broadcast(PLAYER_TRANSLATE + DELIMITER + index + DELIMITER + dx + DELIMITER + dy, -1);
+        // a message sent during a game
+        else if (message.startsWith(GameServer.PLAYER_UPDATE)){
+            String[] playerActions = message.split(UPDATE_DELIMITER);
+            for (int i = 1; i < playerActions.length; i++){
+                String action = playerActions[i];
+                // player is attempting to translate
+                if (action.startsWith(PLAYER_TRANSLATE)){
+                    String[] info = action.split(DELIMITER);
+                    int dx = Integer.valueOf(info[1]);
+                    int dy = Integer.valueOf(info[2]);
+                    System.out.println("Translating in server");
+                    // if the translation was successful, broadcast this to the other players
+                    if(map.translatePlayer(index, dx, dy, true)){
+                        // broadcast to everyone
+                        server.broadcast(PLAYER_TRANSLATE + DELIMITER + index + DELIMITER + dx + DELIMITER + dy, -1);
+                    }
+                }
+                // a player is rotating
+                else if (action.startsWith(PLAYER_ROTATE)){
+                    String[] info = action.split(DELIMITER);
+                    double angle = Double.valueOf(info[1]);
+                    // no need to check because rotation will not cause conflicts
+                    server.broadcast(PLAYER_ROTATE + DELIMITER + index + DELIMITER + angle, -1);
+                }
             }
         }
-        // a player is rotating
-        else if (message.startsWith(PLAYER_ROTATE)){
-            String[] info = message.split(DELIMITER);
-            double angle = Double.valueOf(info[1]);
-            // no need to check because rotation will not cause conflicts
-            server.broadcast(PLAYER_ROTATE + DELIMITER + index + DELIMITER + angle, -1);
-        }
+
     }
 }
