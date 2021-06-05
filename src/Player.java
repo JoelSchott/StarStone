@@ -10,8 +10,8 @@ import java.util.ArrayList;
  */
 public class Player implements PlayerInterface{
 
-    private static final int PORT = 5000;
-    private static final int INPUT_SLEEP = 50;  // amount to sleep between checks for input
+    public static final int PORT = 5000;
+    private static final int INPUT_SLEEP = 200;//50;  // amount to sleep between checks for input
     private static final String SOLDIER_IMAGE_PATH = "src/Images/soldier.png";
     private GameClient client;
     private JFrame frame;
@@ -35,6 +35,7 @@ public class Player implements PlayerInterface{
     public void play(){
         client = new GameClient(this);
         setUpGUI();
+        /*
         while (true){
             if (gameInProgress) {
                 handleGameInput();
@@ -45,6 +46,7 @@ public class Player implements PlayerInterface{
                 e.printStackTrace();
             }
         }
+         */
     }
 
     /**
@@ -82,6 +84,7 @@ public class Player implements PlayerInterface{
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setVisible(true);
         frame.setResizable(false);
+        frame.requestFocus();
     }
 
     /**
@@ -468,9 +471,9 @@ public class Player implements PlayerInterface{
         // starting the game
         else if (message.startsWith(StarStoneGame.START_GAME)){
             map = new Map(players);
-            gameInProgress = true;
             updateMap();
             displayGame();
+            gameInProgress = true;
         }
         // a player is translating
         else if (message.startsWith(StarStoneGame.PLAYER_TRANSLATE)){
@@ -495,6 +498,12 @@ public class Player implements PlayerInterface{
             map.rotatePlayer(index, angle);
             updateMap();
             frame.repaint();
+        }
+        // time to send player input to the server
+        else if (message.startsWith(GameServer.REQUEST_INPUT)){
+            if (gameInProgress) {
+                handleGameInput();
+            }
         }
     }
 }

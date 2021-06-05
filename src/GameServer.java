@@ -11,6 +11,11 @@ import java.util.ArrayList;
  */
 public class GameServer{
 
+    // milliseconds to wait after the server has finished the action from a client, gives time for other clients to run
+    private static final int RECEIVED_MESSAGE_WAIT_TIME = 8;
+    // milliseconds to wait between requesting that players send input
+    private static final int PLAYER_INPUT_WAIT_TIME = 50;
+
     private int portNumber;
     private GameInterface game;
     private ArrayList<ClientHandler> clients = new ArrayList<>();
@@ -18,6 +23,7 @@ public class GameServer{
     private boolean active = false;
 
     public static final String CONNECTION_REJECTED = "REJECTED";
+    public static final String REQUEST_INPUT = "REQUEST_INPUT";
 
     /**
      * @param portNumber the port the server should listen on
@@ -44,6 +50,7 @@ public class GameServer{
             active = false;
         }
 
+        // thread to handle new clients joining
         (new Thread() {
             public void run(){
                 while (active){
@@ -67,6 +74,21 @@ public class GameServer{
                         e.printStackTrace();
                         active = false;
                     }
+                }
+            }
+        }).start();
+
+        // thread to periodically request inputs from players, this should reduce speed differences between players
+        (new Thread() {
+            public void run() {
+                while (active) {
+                    try {
+                        Thread.sleep(PLAYER_INPUT_WAIT_TIME);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    System.out.println("Requesting Input");
+                    broadcast(REQUEST_INPUT, -1);
                 }
             }
         }).start();
@@ -161,6 +183,9 @@ public class GameServer{
                 while ((message = reader.readLine()) != null) {
                     int index = clients.indexOf(this);
                     game.onPlayerMessage(index, message);
+                    // now wait so other clients can have their messages read before another message is read from this client
+                    try{Thread.sleep(RECEIVED_MESSAGE_WAIT_TIME);}
+                    catch(Exception e){e.printStackTrace();}
                 }
             }
             catch (Exception e){

@@ -45,7 +45,7 @@ public class StarStoneGame implements GameInterface{
     }
 
     @Override
-    public void onPlayerMessage(int index, String message) {
+    public synchronized void onPlayerMessage(int index, String message) {
         System.out.println("Player at index " + index + " sent message " + message);
         // a new player is joining
         if (message.startsWith(ADD_PLAYER)){
