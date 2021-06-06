@@ -81,7 +81,7 @@ public class Map {
      */
     public boolean translatePlayer(final int playerIndex, final int dx, final int dy, final boolean server){
         // save the current bounds so it can be drawn over with the background later
-        Bounds playerBounds = players.get(playerIndex).getBounds();
+        Bounds oldBounds = players.get(playerIndex).getBounds();
         //Rectangle playerRect = players.get(playerIndex).getBounds().getRect();
         players.get(playerIndex).translate(dx, dy);
 
@@ -96,6 +96,8 @@ public class Map {
         }
         // if not the server then drawing must occur
         else {
+            redrawBackground(oldBounds);
+/*
             // get the background
             BufferedImage background = getWrappedImage(backgroundMap, playerBounds.getRect().x, playerBounds.getRect().y, playerBounds.getRect().width, playerBounds.getRect().height);
             // draw the background on where the player was
@@ -109,7 +111,7 @@ public class Map {
                 }
             }
 
-
+*/
         }
         return true;
     }
@@ -123,7 +125,8 @@ public class Map {
         // save the old bounds for drawing over
         Bounds oldBounds = players.get(playerIndex).getBounds();
         players.get(playerIndex).setAngle(angle);
-
+        redrawBackground(oldBounds);
+/*
         // get the background
         BufferedImage background = getWrappedImage(backgroundMap, oldBounds.getRect().x, oldBounds.getRect().y, oldBounds.getRect().width, oldBounds.getRect().height);
         // draw the background on where the player was
@@ -133,6 +136,25 @@ public class Map {
         // also draw intersecting players to make sure players are not overdrawn with background
         for (int i = 0; i < players.size(); i++){
             if (i != playerIndex && oldBounds.rectIntersect(players.get(playerIndex).getBounds())){
+                drawPlayer(players.get(i));
+            }
+        }
+
+ */
+    }
+
+    /**
+     * Draws the background over the old bounds, then draws any overlapping players and objects
+     * @param oldBounds the bounds of the area on which to draw the background and overlapping players and objects
+     */
+    private void redrawBackground(final Bounds oldBounds){
+        // get the background
+        BufferedImage background = getWrappedImage(backgroundMap, oldBounds.getRect().x, oldBounds.getRect().y, oldBounds.getRect().width, oldBounds.getRect().height);
+        // draw the background on the full map
+        drawWrappedImage(fullMap, background, oldBounds.getRect().x, oldBounds.getRect().y, 0, 0);
+        // also draw intersecting players to make sure players are not overdrawn with background
+        for (int i = 0; i < players.size(); i++){
+            if (oldBounds.rectIntersect(players.get(i).getBounds())){
                 drawPlayer(players.get(i));
             }
         }
@@ -220,10 +242,6 @@ public class Map {
         }
         x %= imageWidth;
         y %= imageHeight;
-        System.out.println("x is " + x);
-        System.out.println("y is " + y);
-        System.out.println("image width is " + imageWidth);
-        System.out.println("image height is " + imageHeight);
 
         // find amounts to wrap or not wrap
         int nonWrapX = imageWidth - x;
@@ -239,10 +257,6 @@ public class Map {
             wrapY = 0;
             nonWrapY = height;
         }
-        System.out.println("nonWrapX is " + nonWrapX);
-        System.out.println("nonWrapY is " + nonWrapY);
-        System.out.println("wrap x is " + wrapX);
-        System.out.println("wrap y is " + wrapY);
 
         BufferedImage subimage = new BufferedImage(width, height, BufferedImage.TYPE_4BYTE_ABGR);
         Graphics g = subimage.getGraphics();

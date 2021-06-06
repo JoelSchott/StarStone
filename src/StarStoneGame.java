@@ -12,6 +12,7 @@ public class StarStoneGame implements GameInterface{
     public static final String START_GAME = "START_GAME";
     public static final String PLAYER_TRANSLATE = "PLAYER_TRANSLATE";
     public static final String PLAYER_ROTATE = "PLAYER_ROTATE";
+    public static final String PLAYER_SHOOT = "PLAYER_SHOOT";
 
     private GameServer server;
     private ArrayList<StarStonePlayer> players = new ArrayList<>();
@@ -45,7 +46,7 @@ public class StarStoneGame implements GameInterface{
 
     @Override
     public synchronized void onPlayerMessage(int index, String message) {
-        System.out.println("Player at index " + index + " sent message " + message);
+//        System.out.println("Player at index " + index + " sent message " + message);
         // a new player is joining
         if (message.startsWith(ADD_PLAYER)){
             // the player will be the second element of the message
@@ -75,17 +76,11 @@ public class StarStoneGame implements GameInterface{
             // this will make sure players do not join partway through
             gameStarted = true;
         }
-        // a message sent during a game
- //       else if (message.startsWith(GameServer.PLAYER_UPDATE)){
- //           String[] playerActions = message.split(UPDATE_DELIMITER);
- //           for (int i = 1; i < playerActions.length; i++){
- //               String action = playerActions[i];
         // player is attempting to translate
         else if (message.startsWith(PLAYER_TRANSLATE)){
             String[] info = message.split(GameServer.DELIMITER);
             int dx = Integer.valueOf(info[1]);
             int dy = Integer.valueOf(info[2]);
-            System.out.println("Translating in server");
             // if the translation was successful, broadcast this to the other players
             if(map.translatePlayer(index, dx, dy, true)){
                 // broadcast to everyone
@@ -99,8 +94,9 @@ public class StarStoneGame implements GameInterface{
             // no need to check because rotation will not cause conflicts
             server.broadcast(PLAYER_ROTATE + GameServer.DELIMITER + index + GameServer.DELIMITER + angle, -1);
         }
- //   }
-//}
-
+        // a player is shooting
+        else if (message.startsWith(PLAYER_SHOOT)){
+            System.out.println("Shot for player at index " + index);
+        }
     }
 }

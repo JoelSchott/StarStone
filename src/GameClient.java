@@ -88,7 +88,7 @@ public class GameClient {
             try {
                 String message;
                 while ((message = serverReader.readLine()) != null) {
-                    System.out.println("Read a message from the server: " + message);
+ //                   System.out.println("Read a message from the server: " + message);
                     player.onServerMessage(message);
                 }
             } catch (Exception e) {

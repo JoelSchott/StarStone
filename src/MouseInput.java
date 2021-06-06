@@ -40,12 +40,9 @@ public class MouseInput implements MouseListener{
      * @return if the mouse has been clicked since the last time this function was called
      */
     public boolean mouseHasBeenPressed(){
-        if (mousePressed){
-            mousePressed = false;
-            return true;
-        }
-        return false;
-
+        boolean toReturn = mousePressed;
+        mousePressed = false;
+        return toReturn;
     }
 
 }

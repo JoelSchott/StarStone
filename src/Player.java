@@ -26,7 +26,6 @@ public class Player implements PlayerInterface{
     private BufferedImage mapImage;
 
     private boolean gameInProgress = false;
-    private boolean updatingPlayers = false;
 
     public Player(){}
 
@@ -39,7 +38,7 @@ public class Player implements PlayerInterface{
 
         while (true){
             if (gameInProgress) {
-                //handleGameInput();
+                handleGameInput();
             }
             try {
                 Thread.sleep(INPUT_SLEEP);
@@ -71,6 +70,7 @@ public class Player implements PlayerInterface{
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setVisible(true);
         frame.setResizable(false);
+        frame.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
      }
 
      /**
@@ -85,6 +85,7 @@ public class Player implements PlayerInterface{
         frame.setVisible(true);
         frame.setResizable(false);
         frame.requestFocus();
+        frame.setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
     }
 
     /**
@@ -403,13 +404,9 @@ public class Player implements PlayerInterface{
         if (keyInput.isPressed(KeyInput.S)){
             dy += thisPlayer.getSpeed();
         }
-        // send a message if a key is pressed
+        // add a message about movement if a key is pressed
         if (dx != 0 || dy != 0) {
-            System.out.println("Sending a message to server to move dx: " + (int)dx + " dy: " + (int)dy);
-            System.out.println("Sending above message to server, location is " + thisPlayer.getBounds().getRect().x + " " + thisPlayer.getBounds().getRect().y);
-            System.out.println("Sending about two messages to server, top left is " + thisPlayer.getTopLeft().x + ", " + thisPlayer.getTopLeft().y);
             playerUpdate += GameServer.UPDATE_DELIMITER + StarStoneGame.PLAYER_TRANSLATE + GameServer.DELIMITER + (int)dx + GameServer.DELIMITER + (int)dy;
-            //client.sendToServer(StarStoneGame.PLAYER_TRANSLATE + StarStoneGame.DELIMITER + (int)dx + StarStoneGame.DELIMITER + (int)dy);
         }
         // find the current angle the player should face
         Point mouseLocation = getMouseLocation();
@@ -419,24 +416,18 @@ public class Player implements PlayerInterface{
         // if the angle has changed, send a message to the server
         if (Math.abs(angle - thisPlayer.getAngle()) > 0.01){
             playerUpdate += GameServer.UPDATE_DELIMITER + StarStoneGame.PLAYER_ROTATE + GameServer.DELIMITER + angle;
-            //client.sendToServer(StarStoneGame.PLAYER_ROTATE + StarStoneGame.DELIMITER + angle);
+        }
+        // add a message about a mouse click
+        if (mouseInput.mouseHasBeenPressed()){
+            playerUpdate += GameServer.UPDATE_DELIMITER + StarStoneGame.PLAYER_SHOOT;
         }
         // send the message to the server
         client.sendToServer(playerUpdate);
- //       if (!playerUpdate.equals("")){
- //           playerUpdate = GameServer.PLAYER_UPDATE + playerUpdate;
- //           client.sendToServer(playerUpdate);
- //       }
-        // send that there is no update, this way the server will know that this client is ready
-//        else{
-//            client.sendToServer(GameServer.NO_UPDATE);
-//        }
-        System.out.println("The angle is " + Math.toDegrees(angle));
     }
 
     @Override
     public void onServerMessage(String message) {
-        System.out.println("The player reads this message from the server: " + message);
+ //       System.out.println("The player reads this message from the server: " + message);
         // if there was an error, reset everything
         if (message.equals(GameClient.SERVER_ERROR)){
             displayMenu();
@@ -487,41 +478,27 @@ public class Player implements PlayerInterface{
             updateMap();
             displayGame();
             gameInProgress = true;
-            handleGameInput();
         }
         // a player is translating
         else if (message.startsWith(StarStoneGame.PLAYER_TRANSLATE)){
-            updatingPlayers = true;
-            System.out.println("just heard from server to translate, location is " + thisPlayer.getBounds().getRect().x + " " + thisPlayer.getBounds().getRect().y);
-            System.out.println("Just heard to translate, the top left is " + thisPlayer.getTopLeft().x + ", " + thisPlayer.getTopLeft().y);
             String[] info = message.split(GameServer.DELIMITER);
             int index = Integer.valueOf(info[1]);
             int dx = Integer.valueOf(info[2]);
             int dy = Integer.valueOf(info[3]);
             // no need to check because the server has checked
             map.translatePlayer(index, dx, dy, false);
-            System.out.println("just reacted to server translate, location is " + thisPlayer.getBounds().getRect().x + " " + thisPlayer.getBounds().getRect().y);
-            //updateMap();
-            //frame.repaint();
         }
         // a player is rotating
         else if (message.startsWith(StarStoneGame.PLAYER_ROTATE)){
-            updatingPlayers = true;
             String[] info = message.split(GameServer.DELIMITER);
             int index = Integer.valueOf(info[1]);
             double angle = Double.valueOf(info[2]);
-            // no need to check because the server has checked
             map.rotatePlayer(index, angle);
-            //updateMap();
-            //frame.repaint();
         }
-        // finished updating all the players
+        // finished updating all the players, draw the map and repaint the frame
         else if (message.startsWith(GameServer.END_PLAYER_UPDATE)){
-            handleGameInput();
-            updatingPlayers = false;
             updateMap();
             frame.repaint();
-            //handleGameInput();
         }
     }
 }

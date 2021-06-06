@@ -25,8 +25,6 @@ public class GameServer{
     public static final String PLAYER_UPDATE = "PLAYER_UPDATE";
     public static final String UPDATE_DELIMITER = "!";  // delimiter to separate actions in a player update
     public static final String DELIMITER = ":";  // delimiter to separate the different parts of a player update
-//    public static final String NO_UPDATE = "NO_UPDATE";  // represents no change in the player
-//    public static final String NOTHING_RECEIVED = "NOTHING_RECEIVED";  // represents no response from the player
     // all of the updates have been received, so players can send their input again
     public static final String END_PLAYER_UPDATE = "END_PLAYER_UPDATE";
 
@@ -94,7 +92,7 @@ public class GameServer{
                 while (active) {
                     // wait until all players have given input
                     long playerInputTime = waitForAllPlayerInput();
-                    System.out.println("Got all of the player input after " + playerInputTime + " milliseconds");
+      //              System.out.println("Got all of the player input after " + playerInputTime + " milliseconds");
                     // see if extra waiting is needed to wait at least a certain time between inputs
                     long extraWait = PLAYER_INPUT_WAIT_TIME - playerInputTime;
                     if (extraWait > 0) {
@@ -106,17 +104,14 @@ public class GameServer{
                     }
                     // gets the updates and send the updates to the server
                     for (int clientIndex = 0; clientIndex < clients.size(); clientIndex++){
-                        for (String playerUpdate : clients.get(clientIndex).getPlayerUpdates()){
-                            game.onPlayerMessage(clientIndex, playerUpdate);
+                        ArrayList<String> playerUpdates = clients.get(clientIndex).getPlayerUpdates();
+                        for (int i = 0; i < playerUpdates.size(); i++){
+                            game.onPlayerMessage(clientIndex, playerUpdates.get(i));
                         }
-  //                      String playerUpdate = clients.get(clientIndex).getPlayerUpdate();
-  //                      if (playerUpdate != NO_UPDATE){
-  //                          game.onPlayerMessage(clientIndex, playerUpdate);
-  //                      }
                         // set the update to be no input so the function will wait for input again
                         clients.get(clientIndex).resetPlayerUpdate();
                     }
-                    // send a message that the updates have all been sent, so new inputs can be received
+                    // send a message that the updates have all been sent
                     broadcast(END_PLAYER_UPDATE, -1);
                 }
             }
@@ -130,10 +125,21 @@ public class GameServer{
     private long waitForAllPlayerInput(){
         long startTime = System.currentTimeMillis();
         for (int i = 0; i < clients.size(); i++){
-            while (!clients.get(i).isUpdatedReceived()){
-                // wait here
-                try{Thread.sleep(3);}
-                catch(Exception e){e.printStackTrace();}
+            // try catch in case a client leaves
+            try {
+                while (!clients.get(i).isUpdatedReceived()) {
+                    // wait here
+                    try {
+                        Thread.sleep(3);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+            catch (Exception e){
+                System.out.println("Problem waiting, likely a player left");
+                e.printStackTrace();
+                i = 0;  // restart and look at the remaining clients
             }
         }
         return System.currentTimeMillis() - startTime;
@@ -193,7 +199,6 @@ public class GameServer{
         private PrintWriter writer;
         private Socket socket;
         private boolean shuttingDown = false;  // used to tell when to expect exceptions
- //       private String playerUpdate = NOTHING_RECEIVED;  // used when message is not sent immediately
         // a list of the updates for this player, will be read when the game is updating
         private ArrayList<String> playerUpdates = new ArrayList<>();
         // if updates have been received since the last server last read them
@@ -254,20 +259,22 @@ public class GameServer{
                 // do nothing until a message is received
                 while ((message = reader.readLine()) != null){
                     int index = clients.indexOf(this);
-                    System.out.println("Received message in the reader at index " + index + " :" + message);
+ //                   System.out.println("Received message in the reader at index " + index + " :" + message);
                     // if it is a player update, do not send the message to the server immediately but rather store it
                     if (message.startsWith(PLAYER_UPDATE)){
-                        System.out.println("Received a player update at index " + index + " :" + message);
-                        // if the player has updates to send, and was not just sending no updates
+                        // if there are no actual updates to add to the list, the message will just be PLAYER_UPDATE
                         if (!message.equals(PLAYER_UPDATE)){
+                            // all of the actual updates
                             String[] newUpdates = message.split(UPDATE_DELIMITER);
                             for (int i = 1; i < newUpdates.length; i++){
                                 String newUpdate = newUpdates[i];
+                                // find the type of the new update, in case it overwrites an existing player update
                                 String newUpdateType = newUpdate.split(DELIMITER)[0];
                                 // check if the player update is already in the list, if so update it
                                 boolean alreadyInList = false;
                                 for (int j = 0; j < playerUpdates.size(); j++){
                                     if (playerUpdates.get(j).startsWith(newUpdateType)){
+                                        // replace it with the new update
                                         playerUpdates.set(j, newUpdate);
                                         alreadyInList = true;
                                         break;
@@ -282,12 +289,7 @@ public class GameServer{
 
                         updatedReceived = true;
                     }
-                    // a player update that nothing has changed about the player, so store this information
-//                    else if (message.startsWith(NO_UPDATE)){
-//                        System.out.println("Received a no player update at index " + index + " :" + message);
-//                        playerUpdate = NO_UPDATE;
-//                    }
-                    // otherwise, send the message immediately
+                    // send the message immediately if it is not a player update in the game
                     else {
                         game.onPlayerMessage(index, message);
                     }

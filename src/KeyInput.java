@@ -25,7 +25,7 @@ public class KeyInput implements KeyListener {
 
     @Override
     public void keyPressed(KeyEvent e) {
-        System.out.println("Key code " + e.getKeyCode() + " Pressed");
+  //      System.out.println("Key code " + e.getKeyCode() + " Pressed");
         Integer keyCode = e.getKeyCode();
         if (!pressedKeys.contains(keyCode)){
             pressedKeys.add(keyCode);

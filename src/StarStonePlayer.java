@@ -90,8 +90,6 @@ public class StarStonePlayer implements MapElement{
      * @param dy change in y location, positive is down
      */
     public void translate(final int dx, final int dy){
-        System.out.println("Translate was called with current location x: " + location.x + " y: " + location.y);
-        System.out.println("The bounds location is " + bounds.getRect().x + ", " + bounds.getRect().y);
         int newX = location.x + dx;
         int newY = location.y + dy;
 
