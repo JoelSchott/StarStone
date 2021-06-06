@@ -345,7 +345,7 @@ public class Player implements PlayerInterface{
                 System.out.println("Joined game successfully");
                 thisPlayer.setName(menu.getName());
                 thisPlayer.setImageFilePath(SOLDIER_IMAGE_PATH);
-                client.sendToServer(StarStoneGame.ADD_PLAYER + StarStoneGame.DELIMITER + thisPlayer.encode());
+                client.sendToServer(StarStoneGame.ADD_PLAYER + GameServer.DELIMITER + thisPlayer.encode());
             } else {
                 menu.setStatus("Could not join game. Try checking the address and firewall.");
             }
@@ -387,7 +387,7 @@ public class Player implements PlayerInterface{
      * Reacts to player input to the game by sending a player update message to the server
      */
     private void handleGameInput(){
-        String playerUpdate = "";
+        String playerUpdate = GameServer.PLAYER_UPDATE;
         // translation with the keys
         float dx = 0;
         float dy = 0;
@@ -408,7 +408,7 @@ public class Player implements PlayerInterface{
             System.out.println("Sending a message to server to move dx: " + (int)dx + " dy: " + (int)dy);
             System.out.println("Sending above message to server, location is " + thisPlayer.getBounds().getRect().x + " " + thisPlayer.getBounds().getRect().y);
             System.out.println("Sending about two messages to server, top left is " + thisPlayer.getTopLeft().x + ", " + thisPlayer.getTopLeft().y);
-            playerUpdate += StarStoneGame.UPDATE_DELIMITER + StarStoneGame.PLAYER_TRANSLATE + StarStoneGame.DELIMITER + (int)dx + StarStoneGame.DELIMITER + (int)dy;
+            playerUpdate += GameServer.UPDATE_DELIMITER + StarStoneGame.PLAYER_TRANSLATE + GameServer.DELIMITER + (int)dx + GameServer.DELIMITER + (int)dy;
             //client.sendToServer(StarStoneGame.PLAYER_TRANSLATE + StarStoneGame.DELIMITER + (int)dx + StarStoneGame.DELIMITER + (int)dy);
         }
         // find the current angle the player should face
@@ -418,18 +418,19 @@ public class Player implements PlayerInterface{
         double angle = Math.atan2(mouseLocation.y - playerLocation.y, mouseLocation.x - playerLocation.x);
         // if the angle has changed, send a message to the server
         if (Math.abs(angle - thisPlayer.getAngle()) > 0.01){
-            playerUpdate += StarStoneGame.UPDATE_DELIMITER + StarStoneGame.PLAYER_ROTATE + StarStoneGame.DELIMITER + angle;
+            playerUpdate += GameServer.UPDATE_DELIMITER + StarStoneGame.PLAYER_ROTATE + GameServer.DELIMITER + angle;
             //client.sendToServer(StarStoneGame.PLAYER_ROTATE + StarStoneGame.DELIMITER + angle);
         }
-        // send the message if there is information to send
-        if (!playerUpdate.equals("")){
-            playerUpdate = GameServer.PLAYER_UPDATE + playerUpdate;
-            client.sendToServer(playerUpdate);
-        }
+        // send the message to the server
+        client.sendToServer(playerUpdate);
+ //       if (!playerUpdate.equals("")){
+ //           playerUpdate = GameServer.PLAYER_UPDATE + playerUpdate;
+ //           client.sendToServer(playerUpdate);
+ //       }
         // send that there is no update, this way the server will know that this client is ready
-        else{
-            client.sendToServer(GameServer.NO_UPDATE);
-        }
+//        else{
+//            client.sendToServer(GameServer.NO_UPDATE);
+//        }
         System.out.println("The angle is " + Math.toDegrees(angle));
     }
 
@@ -448,7 +449,7 @@ public class Player implements PlayerInterface{
         }
         // given when first joining a game, gives a list of players
         else if (message.startsWith(StarStoneGame.All_PLAYERS)){
-            String[] playerInfo = message.split(StarStoneGame.DELIMITER);
+            String[] playerInfo = message.split(GameServer.DELIMITER);
             // make a player and add it to players from the string info
             for (int i = 1; i < playerInfo.length; i++){
                 StarStonePlayer p = new StarStonePlayer();
@@ -461,12 +462,12 @@ public class Player implements PlayerInterface{
         }
         // when joining the game the server sends the ip address it wants to be known by
         else if (message.startsWith(StarStoneGame.SET_SERVER_IP)){
-            menu.setServerIP(message.split(StarStoneGame.DELIMITER)[1]);
+            menu.setServerIP(message.split(GameServer.DELIMITER)[1]);
             menu.createLobbyMenu();
         }
         // a new player has joined
         else if (message.startsWith(StarStoneGame.ADD_PLAYER)){
-            String[] playerInfo = message.split(StarStoneGame.DELIMITER);
+            String[] playerInfo = message.split(GameServer.DELIMITER);
             StarStonePlayer p = new StarStonePlayer();
             p.construct(playerInfo[1]);
             players.add(p);
@@ -475,7 +476,7 @@ public class Player implements PlayerInterface{
         }
         // a player left
         else if (message.startsWith(StarStoneGame.PLAYER_LEFT)){
-            int index = Integer.valueOf(message.split(StarStoneGame.DELIMITER)[1]);
+            int index = Integer.valueOf(message.split(GameServer.DELIMITER)[1]);
             players.remove(index);
             // redraw the menu to remove the player
             menu.createLobbyMenu();
@@ -493,7 +494,7 @@ public class Player implements PlayerInterface{
             updatingPlayers = true;
             System.out.println("just heard from server to translate, location is " + thisPlayer.getBounds().getRect().x + " " + thisPlayer.getBounds().getRect().y);
             System.out.println("Just heard to translate, the top left is " + thisPlayer.getTopLeft().x + ", " + thisPlayer.getTopLeft().y);
-            String[] info = message.split(StarStoneGame.DELIMITER);
+            String[] info = message.split(GameServer.DELIMITER);
             int index = Integer.valueOf(info[1]);
             int dx = Integer.valueOf(info[2]);
             int dy = Integer.valueOf(info[3]);
@@ -506,7 +507,7 @@ public class Player implements PlayerInterface{
         // a player is rotating
         else if (message.startsWith(StarStoneGame.PLAYER_ROTATE)){
             updatingPlayers = true;
-            String[] info = message.split(StarStoneGame.DELIMITER);
+            String[] info = message.split(GameServer.DELIMITER);
             int index = Integer.valueOf(info[1]);
             double angle = Double.valueOf(info[2]);
             // no need to check because the server has checked
@@ -516,10 +517,11 @@ public class Player implements PlayerInterface{
         }
         // finished updating all the players
         else if (message.startsWith(GameServer.END_PLAYER_UPDATE)){
+            handleGameInput();
             updatingPlayers = false;
             updateMap();
             frame.repaint();
-            handleGameInput();
+            //handleGameInput();
         }
     }
 }
