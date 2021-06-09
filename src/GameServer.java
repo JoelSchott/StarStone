@@ -111,6 +111,8 @@ public class GameServer{
                         // set the update to be no input so the function will wait for input again
                         clients.get(clientIndex).resetPlayerUpdate();
                     }
+                    // have the server update all non-player elements
+                    game.onPlayerMessage(0, END_PLAYER_UPDATE);
                     // send a message that the updates have all been sent
                     broadcast(END_PLAYER_UPDATE, -1);
                 }
@@ -203,6 +205,7 @@ public class GameServer{
         private ArrayList<String> playerUpdates = new ArrayList<>();
         // if updates have been received since the last server last read them
         private boolean updatedReceived = false;
+        private boolean readingMessage = false;  // if a message from the client is currently being read
 
         /**
          * @param clientSocket the socket to use when communicating to the client
@@ -232,13 +235,16 @@ public class GameServer{
          * If the server has received a message since the server last read a message
          * @return if a new message has been received
          */
-        public boolean isUpdatedReceived(){return updatedReceived;}
+        public boolean isUpdatedReceived(){
+            return updatedReceived;
+        }
 
         /**
          * Gives the current player updates strings
          * @return the current player update, will be null if nothing has been sent to the server
          */
         public ArrayList<String> getPlayerUpdates(){
+            waitUntilNotReadingMessage();
             return playerUpdates;
         }
 
@@ -247,7 +253,21 @@ public class GameServer{
          */
         public void resetPlayerUpdate(){
             updatedReceived = false;
+            waitUntilNotReadingMessage();
             playerUpdates.clear();
+        }
+
+        /**
+         * Blocks until the reader is not currently reading a message from the client
+         */
+        private void waitUntilNotReadingMessage(){
+            while (readingMessage){
+                try {
+                    Thread.sleep(3);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
         }
 
         /**
@@ -258,6 +278,7 @@ public class GameServer{
             try {
                 // do nothing until a message is received
                 while ((message = reader.readLine()) != null){
+                    readingMessage = true;
                     int index = clients.indexOf(this);
  //                   System.out.println("Received message in the reader at index " + index + " :" + message);
                     // if it is a player update, do not send the message to the server immediately but rather store it
@@ -293,6 +314,7 @@ public class GameServer{
                     else {
                         game.onPlayerMessage(index, message);
                     }
+                    readingMessage = false;
                 }
             }
             catch (Exception e){
@@ -300,7 +322,7 @@ public class GameServer{
                 if (!shuttingDown){
                     remove();
                 }
-                //e.printStackTrace();
+                e.printStackTrace();
             }
         }
 

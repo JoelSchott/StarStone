@@ -13,6 +13,7 @@ public class StarStoneGame implements GameInterface{
     public static final String PLAYER_TRANSLATE = "PLAYER_TRANSLATE";
     public static final String PLAYER_ROTATE = "PLAYER_ROTATE";
     public static final String PLAYER_SHOOT = "PLAYER_SHOOT";
+    public static final String BULLET_MOVE  = "BULLET_MOVE";
 
     private GameServer server;
     private ArrayList<StarStonePlayer> players = new ArrayList<>();
@@ -92,11 +93,19 @@ public class StarStoneGame implements GameInterface{
             String[] info = message.split(GameServer.DELIMITER);
             double angle = Double.valueOf(info[1]);
             // no need to check because rotation will not cause conflicts
+            map.rotatePlayer(index, angle, true);
             server.broadcast(PLAYER_ROTATE + GameServer.DELIMITER + index + GameServer.DELIMITER + angle, -1);
         }
         // a player is shooting
         else if (message.startsWith(PLAYER_SHOOT)){
             System.out.println("Shot for player at index " + index);
+            // broadcast the bullet creation to everyone
+            map.playerShootBullet(index);
+            server.broadcast(PLAYER_SHOOT + GameServer.DELIMITER + index, -1);
+        }
+        // time to update all non-player elements
+        else if (message.startsWith(GameServer.END_PLAYER_UPDATE)){
+            map.handleMapElements(true);
         }
     }
 }

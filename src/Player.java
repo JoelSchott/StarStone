@@ -389,6 +389,11 @@ public class Player implements PlayerInterface{
      */
     private void handleGameInput(){
         String playerUpdate = GameServer.PLAYER_UPDATE;
+        // if the player is not active, send an empty message
+        if (!thisPlayer.isActive()){
+            client.sendToServer(playerUpdate);
+            return;
+        }
         // translation with the keys
         float dx = 0;
         float dy = 0;
@@ -493,10 +498,20 @@ public class Player implements PlayerInterface{
             String[] info = message.split(GameServer.DELIMITER);
             int index = Integer.valueOf(info[1]);
             double angle = Double.valueOf(info[2]);
-            map.rotatePlayer(index, angle);
+            map.rotatePlayer(index, angle, false);
+        }
+        // a player is shooting
+        else if (message.startsWith(StarStoneGame.PLAYER_SHOOT)){
+            String[] info = message.split(GameServer.DELIMITER);
+            int index = Integer.valueOf(info[1]);
+            // have the map handle the player shooting
+            map.playerShootBullet(index);
+  //          Bullet b = new Bullet(players.get(index).getShootLocation(), players.get(index).getAngle());
+  //          map.addElement(b);
         }
         // finished updating all the players, draw the map and repaint the frame
         else if (message.startsWith(GameServer.END_PLAYER_UPDATE)){
+            map.handleMapElements(false);
             updateMap();
             frame.repaint();
         }
