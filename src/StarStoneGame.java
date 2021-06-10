@@ -13,7 +13,6 @@ public class StarStoneGame implements GameInterface{
     public static final String PLAYER_TRANSLATE = "PLAYER_TRANSLATE";
     public static final String PLAYER_ROTATE = "PLAYER_ROTATE";
     public static final String PLAYER_SHOOT = "PLAYER_SHOOT";
-    public static final String BULLET_MOVE  = "BULLET_MOVE";
 
     private GameServer server;
     private ArrayList<StarStonePlayer> players = new ArrayList<>();

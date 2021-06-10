@@ -30,7 +30,6 @@ public class StarStonePlayer implements MapElement{
     private int innerWidth = 40;
     private int outerWidth = 40;
     private Point anchor = new Point(20,20);  // distance to go from the top left when pivoting to draw rotations
-    private int shootingDistanceOffset = 5;  // extra distance to go when shooting a projectile
     private boolean active = true;
     private int health = MAX_HEALTH;
     private long lastBulletFireTime = System.currentTimeMillis();  // when the last bullet was fired
@@ -92,6 +91,21 @@ public class StarStonePlayer implements MapElement{
         } catch (IOException e) {
             e.printStackTrace();
         }
+        if (imageFilePath.equals(Player.SOLDIER_RIFLE_IMAGE_PATH)){
+            innerWidth = 40;
+            outerWidth = 32;
+            anchor = new Point(20,20);  // distance to go from the top left when pivoting to draw rotations
+        }
+        else if (imageFilePath.equals(Player.SOLDIER_PISTOL_IMAGE_PATH)){
+            innerWidth = 40;
+            outerWidth = 15;
+            anchor = new Point(20, 20);
+        }
+        else if (imageFilePath.equals(Player.SOLDIER_KNIFE_IMAGE_PATH)){
+            innerWidth = 40;
+            outerWidth = 18;
+            anchor = new Point(20, 20);
+        }
     }
 
     private void createHealthBar(){
@@ -128,9 +142,15 @@ public class StarStonePlayer implements MapElement{
      * The point at which bullets fired should appear
      * @return the point where bullets should appear
      */
-    private Point getShootLocation(){
-        int distanceFromCenter = innerWidth + shootingDistanceOffset;
-        double angleOffset = 0.15; // about 4 degrees
+    public Point getShootLocation(){
+        double distanceFromCenter = (innerWidth / 2) + outerWidth;
+        double angleOffset = 0.3; // about 4 degrees
+        if (imageFilePath.equals(Player.SOLDIER_RIFLE_IMAGE_PATH)){
+            angleOffset = 0.2;
+        }
+        if (imageFilePath.equals(Player.SOLDIER_KNIFE_IMAGE_PATH)){
+            angleOffset = 0.1;
+        }
         int shootX = getTopLeft().x + innerWidth / 2 + (int)(Math.cos(angle + angleOffset) * distanceFromCenter);
         int shootY = getTopLeft().y + innerWidth / 2 + (int)(Math.sin(angle + angleOffset) * distanceFromCenter);
         return new Point(shootX - (Bullet.WIDTH / 2), shootY - (Bullet.WIDTH / 2));
@@ -156,28 +176,6 @@ public class StarStonePlayer implements MapElement{
      * Updates the bounds to match the current image
      */
     private void createBounds(){
- /*       Rectangle rect = new Rectangle(location.x - outerWidth, location.y - outerWidth, outerWidth * 2 + innerWidth, outerWidth * 2 + innerWidth);
-        Point topLeft = new Point(location.x, location.y);
-        Point topRight = new Point(topLeft.x + innerWidth, topLeft.y);
-        Point bottomLeft = new Point(topLeft.x, topLeft.y + innerWidth);
-        Point bottomRight = new Point(topLeft.x + innerWidth, topLeft.y + innerWidth);
-        ArrayList<Line2D.Float> lines = new ArrayList<>();
-        lines.add(new Line2D.Float(topLeft, topRight));
-        lines.add(new Line2D.Float(topRight, bottomRight));
-        lines.add(new Line2D.Float(bottomRight, bottomLeft));
-        //float oneThirdX = (float)(location.x + (width / 3.0));
-        //float threeFourthsY = (float)(location.y + (height * 3.0 / 4.0));
-        //lines.add(new Line2D.Float(location.x, location.y, oneThirdX, location.y));
-        //lines.add(new Line2D.Float(location.x, bottomLeft.y, oneThirdX, bottomLeft.y));
-        //lines.add(new Line2D.Float(oneThirdX, location.y, topRight.x, threeFourthsY));
-        //lines.add(new Line2D.Float(oneThirdX, bottomLeft.y, topRight.x, threeFourthsY));
-        lines.add(new Line2D.Float(bottomLeft, topLeft));
-
-        boolean wrapsX = rect.x + rect.width >= Map.WIDTH;
-        boolean wrapsY = rect.y + rect.height >= Map.HEIGHT;
-        bounds = new Bounds(rect, lines, wrapsX, wrapsY);
-
-  */
         Rectangle centerBound = new Rectangle(topLeft.x, topLeft.y, innerWidth, innerWidth);
         ArrayList<Rectangle> boundingRects = new ArrayList<>();
         boundingRects.add(centerBound);

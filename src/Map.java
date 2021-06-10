@@ -49,6 +49,7 @@ public class Map {
             if (players.get(i).isSetUp()){
                 players.get(i).setTopLeft(l.getPlayerSpawns().get(i));
                 this.players.add(players.get(i));
+
             }
         }
         Graphics g = backgroundMap.getGraphics();
@@ -146,6 +147,12 @@ public class Map {
         Bullet b = players.get(playerIndex).shootBullet();
         // if the bullet was shot successfully
         if (b != null){
+            // make sure the bullet does not collide with any elements
+            for (MapElement e : elements){
+                if (RectBounds.boundsIntersect(e.getBounds(), b.getBounds())){
+                    return;
+                }
+            }
             elements.add(b);
         }
     }
@@ -209,17 +216,24 @@ public class Map {
         BufferedImage background = getWrappedImage(backgroundMap, oldRect.x, oldRect.y, oldRect.width, oldRect.height);
         // draw the background on the full map
         drawWrappedImage(fullMap, background, oldRect.x, oldRect.y, 0, new Point(0,0));
-        // also draw intersecting players to make sure players are not overdrawn with background
+        // also draw intersecting elements and players to make sure players are not overdrawn with background
+        for (int i = 0; i < elements.size(); i++){
+            if (RectBounds.drawRectIntersects(elements.get(i).getBounds(), oldBounds)){
+                drawElement(elements.get(i));
+                // draw players that are intersecting this element so the players always appear on top
+                for (int j = 0; j < players.size(); j++){
+                    if (players.get(j).isActive() && RectBounds.drawRectIntersects(players.get(j).getBounds(), elements.get(i).getBounds())){
+                        drawElement(players.get(j));
+                    }
+                }
+            }
+        }
         for (int i = 0; i < players.size(); i++){
             if (players.get(i).isActive() && RectBounds.drawRectIntersects(players.get(i).getBounds(), oldBounds)){
                 drawElement(players.get(i));
             }
         }
-        for (int i = 0; i < elements.size(); i++){
-            if (RectBounds.drawRectIntersects(elements.get(i).getBounds(), oldBounds)){
-                drawElement(elements.get(i));
-            }
-        }
+
     }
 
     /**
@@ -228,10 +242,6 @@ public class Map {
      * @return the element that collides, null if nothing collides
      */
     private MapElement collides(MapElement element){
-        System.out.println("First player active: " + players.get(0).isActive());
-        System.out.println("First player health: " + players.get(0).getHealth());
-        System.out.println("Second player active: " + players.get(1).isActive());
-        System.out.println("Second player health: " + players.get(1).getHealth());
         // collisions between other players
         for (StarStonePlayer p : players){
             if (p.isActive() && p != element && RectBounds.boundsIntersect(element.getBounds(), p.getBounds())){
@@ -269,10 +279,10 @@ public class Map {
         Graphics2D g = fullMap.createGraphics();
         g.setColor(Color.RED);
         Rectangle playerRect = e.getBounds().getRedrawRect();
- //       g.drawRect(playerRect.x, playerRect.y, playerRect.width, playerRect.height);
+        g.drawRect(playerRect.x, playerRect.y, playerRect.width, playerRect.height);
         g.setColor(Color.GREEN);
         Rectangle boundRect = e.getBounds().getBoundingRects().get(0);
-//        g.drawRect(boundRect.x, boundRect.y, boundRect.width, boundRect.height);
+        g.drawRect(boundRect.x, boundRect.y, boundRect.width, boundRect.height);
   //      ArrayList<Line2D.Float> playerBounds = e.getBounds().getPolygon();
  //       for (Line2D.Float line : playerBounds){
  //           g.drawLine((int)line.x1, (int)line.y1, (int)line.x2, (int)line.y2);
@@ -283,7 +293,7 @@ public class Map {
 
 
             g.setColor(Color.BLUE);
-  //          g.fillRect(((StarStonePlayer)e).getShootLocation().x, ((StarStonePlayer)e).getShootLocation().y, 1, 1);
+            g.fillRect(((StarStonePlayer)e).getShootLocation().x, ((StarStonePlayer)e).getShootLocation().y, Bullet.WIDTH, Bullet.WIDTH);
         }
     }
 

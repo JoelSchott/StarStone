@@ -12,7 +12,9 @@ public class Player implements PlayerInterface{
 
     public static final int PORT = 5000;
     private static final int INPUT_SLEEP = 25;  // amount to sleep between updating player input to the server
-    private static final String SOLDIER_IMAGE_PATH = "src/Images/soldier.png";
+    public static final String SOLDIER_PISTOL_IMAGE_PATH = "src/Images/soldier_pistol.png";
+    public static final String SOLDIER_RIFLE_IMAGE_PATH = "src/Images/soldier_rifle.png";
+    public static final String SOLDIER_KNIFE_IMAGE_PATH = "src/Images/soldier_knife.png";
     private GameClient client;
     private JFrame frame;
     private MenuPanel menu;
@@ -345,7 +347,7 @@ public class Player implements PlayerInterface{
             if (client.joinServer(address, port)) {
                 System.out.println("Joined game successfully");
                 thisPlayer.setName(menu.getName());
-                thisPlayer.setImageFilePath(SOLDIER_IMAGE_PATH);
+                thisPlayer.setImageFilePath(SOLDIER_KNIFE_IMAGE_PATH);
                 client.sendToServer(StarStoneGame.ADD_PLAYER + GameServer.DELIMITER + thisPlayer.encode());
             } else {
                 menu.setStatus("Could not join game. Try checking the address and firewall.");
